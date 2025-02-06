@@ -393,6 +393,9 @@ export default function AssistantPage() {
           </div>
         </div>
       )}
+      <footer className="w-full text-center py-4 text-gray-500 mt-8">
+        azmth - All Rights Reserved.
+      </footer>
     </div>
   );
 }
