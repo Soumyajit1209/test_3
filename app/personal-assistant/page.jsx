@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { 
   Phone, 
   RefreshCw, 
@@ -11,7 +12,8 @@ import {
   Square, 
   RotateCcw,
   User,
-  Bot
+  Bot,
+  Send
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
@@ -25,6 +27,9 @@ export default function AssistantPage() {
   const [isCallActive, setIsCallActive] = useState(false);
   const [audioBlob, setAudioBlob] = useState(null);
   const [responseAudio, setResponseAudio] = useState(null);
+  const [userName, setUserName] = useState("");
+  const [isNameSubmitted, setIsNameSubmitted] = useState(false);
+  const [welcomeMessage, setWelcomeMessage] = useState("");
   
   const { toast } = useToast();
   const mediaRecorderRef = useRef(null);
@@ -35,6 +40,35 @@ export default function AssistantPage() {
   const canvasRef = useRef(null);
   const animationFrameRef = useRef(null);
   const audioRef = useRef(null);
+
+  const handleNameSubmit = async () => {
+    if (!userName.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Please enter your name",
+      });
+      return;
+    }
+
+    try {
+      // Simulate API call - Replace with your actual backend call
+      const response = await new Promise(resolve => 
+        setTimeout(() => resolve({ 
+          message: `Welcome to azmth, ${userName}!`
+        }), 1000)
+      );
+
+      setWelcomeMessage(response.message);
+      setIsNameSubmitted(true);
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to process your name. Please try again.",
+      });
+    }
+  };
 
   useEffect(() => {
     return () => {
@@ -161,6 +195,7 @@ export default function AssistantPage() {
     try {
       const formData = new FormData();
       formData.append('audio', audioBlob);
+      formData.append('username', userName);
 
       const response = await fetch('/api/clone-voice', {
         method: 'POST',
@@ -179,7 +214,14 @@ export default function AssistantPage() {
   };
 
   const handleCloning = async () => {
-    if (!audioBlob) return;
+    if (!audioBlob || !userName) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Please enter your name and record audio before proceeding",
+      });
+      return;
+    }
 
     setIsCloning(true);
     setCloningProgress(0);
@@ -248,25 +290,46 @@ export default function AssistantPage() {
         {/* Left Section */}
         <div className="flex-1 min-w-[45%]">
           <Card className="p-6 space-y-6">
-            <div className="space-y-4">
-              <h2 className="text-2xl font-bold">Personal Assistant</h2>
-              <div className="prose prose-sm dark:prose-invert">
-                <p className="text-muted-foreground leading-relaxed">
-                  Hello, my name is _______________ (Name), and I am _______________ (Age) years old. 
-                  I practice _______________ (Religion) and am a _______________ (Nationality) national. 
-                  My highest qualification is _______________ (Highest Qualification). 
-                  With _______________ (Experience) years of experience, I currently work as a _______________ (Current Job).
-                </p>
-                <div className="space-y-2 mt-4">
-                  <h3 className="font-semibold">Today&apos;s Schedule</h3>
-                  <ul className="space-y-2 list-none pl-0">
-                    <li className="text-sm text-muted-foreground">10:00 AM - Meeting with John from Marketing to discuss our new campaign strategy</li>
-                    <li className="text-sm text-muted-foreground">1:00 PM - Meeting with Emily from Sales to review our quarterly targets</li>
-                    <li className="text-sm text-muted-foreground">3:30 PM - Meeting with David from IIT to discuss our upcoming system upgrades</li>
-                  </ul>
+            {!isNameSubmitted ? (
+              <div className="space-y-4">
+                <h2 className="text-2xl font-bold">Welcome</h2>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Enter your name"
+                    value={userName}
+                    onChange={(e) => setUserName(e.target.value)}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') {
+                        handleNameSubmit();
+                      }
+                    }}
+                  />
+                  <Button onClick={handleNameSubmit}>
+                    <Send className="h-4 w-4" />
+                  </Button>
                 </div>
               </div>
-            </div>
+            ) : (
+              <div className="space-y-4">
+                <h2 className="text-2xl font-bold">{welcomeMessage}</h2>
+                <div className="prose prose-sm dark:prose-invert">
+                  <p className="text-muted-foreground leading-relaxed">
+                    Hello, my name is {userName}, and I am _______________ (Age) years old. 
+                    I practice _______________ (Religion) and am a _______________ (Nationality) national. 
+                    My highest qualification is _______________ (Highest Qualification). 
+                    With _______________ (Experience) years of experience, I currently work as a _______________ (Current Job).
+                  </p>
+                  <div className="space-y-2 mt-4">
+                    <h3 className="font-semibold">Today's Schedule</h3>
+                    <ul className="space-y-2 list-none pl-0">
+                      <li className="text-sm text-muted-foreground">10:00 AM - Meeting with John from Marketing to discuss our new campaign strategy</li>
+                      <li className="text-sm text-muted-foreground">1:00 PM - Meeting with Emily from Sales to review our quarterly targets</li>
+                      <li className="text-sm text-muted-foreground">3:30 PM - Meeting with David from IT to discuss our upcoming system upgrades</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Voice Recording Interface */}
             <div className="space-y-4">
@@ -399,4 +462,3 @@ export default function AssistantPage() {
     </div>
   );
 }
-
