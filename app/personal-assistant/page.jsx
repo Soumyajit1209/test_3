@@ -30,6 +30,7 @@ export default function AssistantPage() {
   const [userName, setUserName] = useState("");
   const [isNameSubmitted, setIsNameSubmitted] = useState(false);
   const [welcomeMessage, setWelcomeMessage] = useState("");
+  const [showRecordingGuide, setShowRecordingGuide] = useState(false);
   
   const { toast } = useToast();
   const mediaRecorderRef = useRef(null);
@@ -61,6 +62,15 @@ export default function AssistantPage() {
 
       setWelcomeMessage(response.message);
       setIsNameSubmitted(true);
+      
+      // Show recording guidance toast
+      toast({
+        title: "Let's record your voice",
+        description: "Press the microphone button and read the text below for voice cloning.",
+        duration: 5000,
+      });
+      
+      setShowRecordingGuide(true);
     } catch (error) {
       toast({
         variant: "destructive",
@@ -312,6 +322,13 @@ export default function AssistantPage() {
             ) : (
               <div className="space-y-4">
                 <h2 className="text-2xl font-bold">{welcomeMessage}</h2>
+                {showRecordingGuide && (
+                  <div className="bg-primary/10 p-4 rounded-lg mb-4">
+                    <p className="text-sm text-primary font-medium">
+                      Please press the microphone button below and read the following text:
+                    </p>
+                  </div>
+                )}
                 <div className="prose prose-sm dark:prose-invert">
                   <p className="text-muted-foreground leading-relaxed">
                     Hello, my name is {userName}, and I am _______________ (Age) years old. 
@@ -332,66 +349,70 @@ export default function AssistantPage() {
             )}
 
             {/* Voice Recording Interface */}
-            <div className="space-y-4">
-              <div className="h-10">
-                <canvas 
-                  ref={canvasRef} 
-                  className="w-full h-full"
-                  width={600}
-                  height={40}
-                />
-              </div>
-              
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className={`w-2 h-2 rounded-full ${isRecording ? 'bg-red-500 animate-pulse' : 'bg-gray-400'}`} />
-                  <span className="text-sm font-mono">{formatTime(recordingTime)}</span>
+            {isNameSubmitted && (
+              <div className="space-y-4">
+                <div className="h-10">
+                  <canvas 
+                    ref={canvasRef} 
+                    className="w-full h-full"
+                    width={600}
+                    height={40}
+                  />
                 </div>
                 
-                <div className="flex gap-2">
-                  <Button
-                    size="icon"
-                    variant={isRecording ? "destructive" : "secondary"}
-                    onClick={isRecording ? stopRecording : startRecording}
-                  >
-                    {isRecording ? <Square className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
-                  </Button>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className={`w-2 h-2 rounded-full ${isRecording ? 'bg-red-500 animate-pulse' : 'bg-gray-400'}`} />
+                    <span className="text-sm font-mono">{formatTime(recordingTime)}</span>
+                  </div>
                   
-                  <Button
-                    size="icon"
-                    variant="secondary"
-                    disabled={!audioBlob || isRecording}
-                    onClick={handlePlayback}
-                  >
-                    <Play className="h-4 w-4" />
-                  </Button>
-                  
-                  <Button
-                    size="icon"
-                    variant="secondary"
-                    onClick={() => {
-                      setAudioBlob(null);
-                      setRecordingTime(0);
-                      if (audioRef.current) {
-                        audioRef.current.pause();
-                        audioRef.current = null;
-                      }
-                    }}
-                  >
-                    <RotateCcw className="h-4 w-4" />
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      size="icon"
+                      variant={isRecording ? "destructive" : "secondary"}
+                      onClick={isRecording ? stopRecording : startRecording}
+                    >
+                      {isRecording ? <Square className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                    </Button>
+                    
+                    <Button
+                      size="icon"
+                      variant="secondary"
+                      disabled={!audioBlob || isRecording}
+                      onClick={handlePlayback}
+                    >
+                      <Play className="h-4 w-4" />
+                    </Button>
+                    
+                    <Button
+                      size="icon"
+                      variant="secondary"
+                      onClick={() => {
+                        setAudioBlob(null);
+                        setRecordingTime(0);
+                        if (audioRef.current) {
+                          audioRef.current.pause();
+                          audioRef.current = null;
+                        }
+                      }}
+                    >
+                      <RotateCcw className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
 
-            <Button
-              className="w-full"
-              size="lg"
-              disabled={!audioBlob || isCloning}
-              onClick={handleCloning}
-            >
-              Proceed with Cloning
-            </Button>
+            {isNameSubmitted && (
+              <Button
+                className="w-full"
+                size="lg"
+                disabled={!audioBlob || isCloning}
+                onClick={handleCloning}
+              >
+                Proceed with Cloning
+              </Button>
+            )}
           </Card>
         </div>
 
@@ -456,7 +477,7 @@ export default function AssistantPage() {
           </div>
         </div>
       )}
-      <footer className="w-full text-center py-4 text-gray-500 mt-8">
+       <footer className="w-full text-center py-4 text-gray-500 mt-8">
         azmth - All Rights Reserved.
       </footer>
     </div>
