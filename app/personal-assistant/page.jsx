@@ -302,7 +302,7 @@ export default function AssistantPage() {
           <Card className="p-6 space-y-6">
             {!isNameSubmitted ? (
               <div className="space-y-4">
-                <h2 className="text-2xl font-bold">Welcome</h2>
+                <h2 className="text-2xl font-bold">Personal Assistant</h2>
                 <div className="flex gap-2">
                   <Input
                     placeholder="Enter your name"
