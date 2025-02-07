@@ -320,7 +320,7 @@ export default function AssistantPage() {
                     With _______________ (Experience) years of experience, I currently work as a _______________ (Current Job).
                   </p>
                   <div className="space-y-2 mt-4">
-                    <h3 className="font-semibold">Today's Schedule</h3>
+                    <h3 className="font-semibold">Today&apos;s Schedule</h3>
                     <ul className="space-y-2 list-none pl-0">
                       <li className="text-sm text-muted-foreground">10:00 AM - Meeting with John from Marketing to discuss our new campaign strategy</li>
                       <li className="text-sm text-muted-foreground">1:00 PM - Meeting with Emily from Sales to review our quarterly targets</li>
