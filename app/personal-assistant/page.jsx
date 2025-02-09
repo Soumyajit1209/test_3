@@ -4,24 +4,27 @@ import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { 
-  Phone, 
-  RefreshCw, 
-  Mic, 
-  Play, 
-  Square, 
+import {
+  Phone,
+  RefreshCw,
+  Mic,
+  Play,
+  Square,
   RotateCcw,
   User,
   Bot,
-  Send
+  Send,
 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
+import axios from "axios";
+import { set } from "date-fns";
 
 export default function AssistantPage() {
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [voice_id, setVoiceId] = useState("");
   const [isCloning, setIsCloning] = useState(false);
   const [cloningProgress, setCloningProgress] = useState(0);
   const [isCallActive, setIsCallActive] = useState(false);
@@ -31,7 +34,7 @@ export default function AssistantPage() {
   const [isNameSubmitted, setIsNameSubmitted] = useState(false);
   const [welcomeMessage, setWelcomeMessage] = useState("");
   const [showRecordingGuide, setShowRecordingGuide] = useState(false);
-  
+
   const { toast } = useToast();
   const mediaRecorderRef = useRef(null);
   const audioChunksRef = useRef([]);
@@ -54,22 +57,27 @@ export default function AssistantPage() {
 
     try {
       // Simulate API call - Replace with your actual backend call
-      const response = await new Promise(resolve => 
-        setTimeout(() => resolve({ 
-          message: `Welcome to azmth, ${userName}!`
-        }), 1000)
+      const response = await new Promise((resolve) =>
+        setTimeout(
+          () =>
+            resolve({
+              message: `Welcome to azmth, ${userName}!`,
+            }),
+          1000
+        )
       );
 
       setWelcomeMessage(response.message);
       setIsNameSubmitted(true);
-      
+
       // Show recording guidance toast
       toast({
         title: "Let's record your voice",
-        description: "Press the microphone button and read the text below for voice cloning.",
+        description:
+          "Press the microphone button and read the text below for voice cloning.",
         duration: 5000,
       });
-      
+
       setShowRecordingGuide(true);
     } catch (error) {
       toast({
@@ -83,7 +91,8 @@ export default function AssistantPage() {
   useEffect(() => {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
-      if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+      if (animationFrameRef.current)
+        cancelAnimationFrame(animationFrameRef.current);
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current = null;
@@ -102,25 +111,28 @@ export default function AssistantPage() {
       };
 
       mediaRecorderRef.current.onstop = () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
+        const audioBlob = new Blob(audioChunksRef.current, {
+          type: "audio/wav",
+        });
         setAudioBlob(audioBlob);
       };
 
       mediaRecorderRef.current.start();
       setIsRecording(true);
-      
+
       setRecordingTime(0);
       timerRef.current = setInterval(() => {
-        setRecordingTime(prev => prev + 1);
+        setRecordingTime((prev) => prev + 1);
       }, 1000);
 
       setupAudioVisualization(stream);
     } catch (error) {
-      console.error('Error accessing microphone:', error);
+      console.error("Error accessing microphone:", error);
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Failed to access microphone. Please check your permissions.",
+        description:
+          "Failed to access microphone. Please check your permissions.",
       });
     }
   };
@@ -135,57 +147,58 @@ export default function AssistantPage() {
   };
 
   const setupAudioVisualization = (stream) => {
-    audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
+    audioContextRef.current = new (window.AudioContext ||
+      window.webkitAudioContext)();
     analyserRef.current = audioContextRef.current.createAnalyser();
     const source = audioContextRef.current.createMediaStreamSource(stream);
     source.connect(analyserRef.current);
-    
+
     const canvas = canvasRef.current;
-    const canvasCtx = canvas.getContext('2d');
-    
+    const canvasCtx = canvas.getContext("2d");
+
     const draw = () => {
       const WIDTH = canvas.width;
       const HEIGHT = canvas.height;
-      
+
       analyserRef.current.fftSize = 2048;
       const bufferLength = analyserRef.current.frequencyBinCount;
       const dataArray = new Uint8Array(bufferLength);
-      
+
       canvasCtx.clearRect(0, 0, WIDTH, HEIGHT);
-      
+
       const drawVisual = () => {
         animationFrameRef.current = requestAnimationFrame(drawVisual);
         analyserRef.current.getByteTimeDomainData(dataArray);
-        
-        canvasCtx.fillStyle = 'rgb(200, 200, 200)';
+
+        canvasCtx.fillStyle = "rgb(200, 200, 200)";
         canvasCtx.fillRect(0, 0, WIDTH, HEIGHT);
         canvasCtx.lineWidth = 2;
-        canvasCtx.strokeStyle = 'rgb(0, 0, 0)';
+        canvasCtx.strokeStyle = "rgb(0, 0, 0)";
         canvasCtx.beginPath();
-        
-        const sliceWidth = WIDTH * 1.0 / bufferLength;
+
+        const sliceWidth = (WIDTH * 1.0) / bufferLength;
         let x = 0;
-        
+
         for (let i = 0; i < bufferLength; i++) {
           const v = dataArray[i] / 128.0;
-          const y = v * HEIGHT / 2;
-          
+          const y = (v * HEIGHT) / 2;
+
           if (i === 0) {
             canvasCtx.moveTo(x, y);
           } else {
             canvasCtx.lineTo(x, y);
           }
-          
+
           x += sliceWidth;
         }
-        
+
         canvasCtx.lineTo(canvas.width, canvas.height / 2);
         canvasCtx.stroke();
       };
-      
+
       drawVisual();
     };
-    
+
     draw();
   };
 
@@ -201,34 +214,30 @@ export default function AssistantPage() {
     }
   };
 
-  const sendAudioToBackend = async (audioBlob) => {
-    try {
-      const formData = new FormData();
-      formData.append('audio', audioBlob);
-      formData.append('username', userName);
+  async function sendAudioToBackend(audioBlob) {
+    const formData = new FormData();
+    formData.append("user_name", "Biplab Roy");
+    formData.append("initial_text", "i am Biplab Roy");
+    formData.append("voice_sample", audioBlob, "voice_sample.wav"); // Correct file field name
 
-      const response = await fetch('/api/clone-voice', {
-        method: 'POST',
-        body: formData
-      });
+    const response = await fetch("http://127.0.0.1:8000/initialize", {
+      method: "POST",
+      body: formData,
+    });
 
-      if (!response.ok) {
-        throw new Error('Failed to process audio');
-      }
-
-      const data = await response.json();
-      return data;
-    } catch (error) {
-      throw new Error('Failed to communicate with the server');
-    }
-  };
+    const result = await response.json();
+    setVoiceId(result.voice_id);
+    console.log(result.voice_id);
+    return result;
+  }
 
   const handleCloning = async () => {
     if (!audioBlob || !userName) {
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Please enter your name and record audio before proceeding",
+        description:
+          "Please enter your name and record audio before proceeding",
       });
       return;
     }
@@ -239,7 +248,7 @@ export default function AssistantPage() {
     try {
       // Start progress animation
       const progressInterval = setInterval(() => {
-        setCloningProgress(prev => {
+        setCloningProgress((prev) => {
           if (prev >= 90) return prev;
           return prev + 5;
         });
@@ -247,20 +256,20 @@ export default function AssistantPage() {
 
       // Send audio to backend
       const response = await sendAudioToBackend(audioBlob);
-      
+
       // Complete progress
       clearInterval(progressInterval);
       setCloningProgress(100);
-
+      setIsCloning(false);
       // Set response audio and activate call
       if (response.audioUrl) {
-        const audioBlob = await fetch(response.audioUrl).then(r => r.blob());
+        const audioBlob = await fetch(response.audioUrl).then((r) => r.blob());
         setResponseAudio(audioBlob);
-        
+
         setTimeout(() => {
           setIsCloning(false);
           setIsCallActive(true);
-          
+
           // Auto-play response
           if (audioRef.current) {
             audioRef.current.pause();
@@ -270,7 +279,7 @@ export default function AssistantPage() {
         }, 500);
       }
     } catch (error) {
-      console.error('Cloning failed:', error);
+      console.error("Cloning failed:", error);
       toast({
         variant: "destructive",
         title: "Error",
@@ -291,7 +300,7 @@ export default function AssistantPage() {
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
   return (
@@ -309,7 +318,7 @@ export default function AssistantPage() {
                     value={userName}
                     onChange={(e) => setUserName(e.target.value)}
                     onKeyPress={(e) => {
-                      if (e.key === 'Enter') {
+                      if (e.key === "Enter") {
                         handleNameSubmit();
                       }
                     }}
@@ -325,23 +334,35 @@ export default function AssistantPage() {
                 {showRecordingGuide && (
                   <div className="bg-primary/10 p-4 rounded-lg mb-4">
                     <p className="text-sm text-primary font-medium">
-                      Please press the microphone button below and read the following text:
+                      Please press the microphone button below and read the
+                      following text:
                     </p>
                   </div>
                 )}
                 <div className="prose prose-sm dark:prose-invert">
                   <p className="text-muted-foreground leading-relaxed">
-                    Hello, my name is {userName}, and I am _______________ (Age) years old. 
-                    I practice _______________ (Religion) and am a _______________ (Nationality) national. 
-                    My highest qualification is _______________ (Highest Qualification). 
-                    With _______________ (Experience) years of experience, I currently work as a _______________ (Current Job).
+                    Hello, my name is {userName}, and I am _______________ (Age)
+                    years old. I practice _______________ (Religion) and am a
+                    _______________ (Nationality) national. My highest
+                    qualification is _______________ (Highest Qualification).
+                    With _______________ (Experience) years of experience, I
+                    currently work as a _______________ (Current Job).
                   </p>
                   <div className="space-y-2 mt-4">
                     <h3 className="font-semibold">Today&apos;s Schedule</h3>
                     <ul className="space-y-2 list-none pl-0">
-                      <li className="text-sm text-muted-foreground">10:00 AM - Meeting with John from Marketing to discuss our new campaign strategy</li>
-                      <li className="text-sm text-muted-foreground">1:00 PM - Meeting with Emily from Sales to review our quarterly targets</li>
-                      <li className="text-sm text-muted-foreground">3:30 PM - Meeting with David from IT to discuss our upcoming system upgrades</li>
+                      <li className="text-sm text-muted-foreground">
+                        10:00 AM - Meeting with John from Marketing to discuss
+                        our new campaign strategy
+                      </li>
+                      <li className="text-sm text-muted-foreground">
+                        1:00 PM - Meeting with Emily from Sales to review our
+                        quarterly targets
+                      </li>
+                      <li className="text-sm text-muted-foreground">
+                        3:30 PM - Meeting with David from IT to discuss our
+                        upcoming system upgrades
+                      </li>
                     </ul>
                   </div>
                 </div>
@@ -352,29 +373,39 @@ export default function AssistantPage() {
             {isNameSubmitted && (
               <div className="space-y-4">
                 <div className="h-10">
-                  <canvas 
-                    ref={canvasRef} 
+                  <canvas
+                    ref={canvasRef}
                     className="w-full h-full"
                     width={600}
                     height={40}
                   />
                 </div>
-                
+
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <div className={`w-2 h-2 rounded-full ${isRecording ? 'bg-red-500 animate-pulse' : 'bg-gray-400'}`} />
-                    <span className="text-sm font-mono">{formatTime(recordingTime)}</span>
+                    <div
+                      className={`w-2 h-2 rounded-full ${
+                        isRecording ? "bg-red-500 animate-pulse" : "bg-gray-400"
+                      }`}
+                    />
+                    <span className="text-sm font-mono">
+                      {formatTime(recordingTime)}
+                    </span>
                   </div>
-                  
+
                   <div className="flex gap-2">
                     <Button
                       size="icon"
                       variant={isRecording ? "destructive" : "secondary"}
                       onClick={isRecording ? stopRecording : startRecording}
                     >
-                      {isRecording ? <Square className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                      {isRecording ? (
+                        <Square className="h-4 w-4" />
+                      ) : (
+                        <Mic className="h-4 w-4" />
+                      )}
                     </Button>
-                    
+
                     <Button
                       size="icon"
                       variant="secondary"
@@ -383,7 +414,7 @@ export default function AssistantPage() {
                     >
                       <Play className="h-4 w-4" />
                     </Button>
-                    
+
                     <Button
                       size="icon"
                       variant="secondary"
@@ -421,15 +452,27 @@ export default function AssistantPage() {
           <Card className="p-6">
             <div className="flex justify-center gap-8 mb-8">
               <div className="relative">
-                <div className={`w-[150px] h-[150px] rounded-full bg-secondary flex items-center justify-center
-                  ${isCallActive ? 'ring-4 ring-primary ring-opacity-50 animate-pulse' : ''}`}>
+                <div
+                  className={`w-[150px] h-[150px] rounded-full bg-secondary flex items-center justify-center
+                  ${
+                    isCallActive
+                      ? "ring-4 ring-primary ring-opacity-50 animate-pulse"
+                      : ""
+                  }`}
+                >
                   <User className="w-16 h-16 text-muted-foreground" />
                 </div>
               </div>
-              
+
               <div className="relative">
-                <div className={`w-[150px] h-[150px] rounded-full bg-secondary flex items-center justify-center
-                  ${isCallActive ? 'ring-4 ring-primary ring-opacity-50 animate-pulse' : ''}`}>
+                <div
+                  className={`w-[150px] h-[150px] rounded-full bg-secondary flex items-center justify-center
+                  ${
+                    isCallActive
+                      ? "ring-4 ring-primary ring-opacity-50 animate-pulse"
+                      : ""
+                  }`}
+                >
                   <Bot className="w-16 h-16 text-muted-foreground" />
                 </div>
               </div>
@@ -451,7 +494,7 @@ export default function AssistantPage() {
               >
                 <Phone className="w-6 h-6" />
               </Button>
-              
+
               <Button
                 size="lg"
                 variant="secondary"
@@ -477,7 +520,7 @@ export default function AssistantPage() {
           </div>
         </div>
       )}
-       <footer className="w-full text-center py-4 text-gray-500 mt-8">
+      <footer className="w-full text-center py-4 text-gray-500 mt-8">
         azmth - All Rights Reserved.
       </footer>
     </div>
