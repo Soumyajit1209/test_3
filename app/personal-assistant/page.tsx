@@ -1,8 +1,22 @@
 "use client"
 import React, { useState, useRef, useEffect } from "react";
 import { Phone, RefreshCw, Mic, Play, Square, RotateCcw, User, Bot, Send } from "lucide-react";
-import { useToast } from "@/hooks/use-toast";
-import { Progress } from "@/components/ui/progress"
+
+
+interface CloneResponse {
+  voiceId: string;
+  success: boolean;
+}
+
+interface ChatResponse {
+  text: string;
+  success: boolean;
+}
+
+interface VoiceSynthesisResponse {
+  audioUrl: string;
+  success: boolean;
+}
 
 function App() {
   const [isRecording, setIsRecording] = useState(false);
@@ -19,7 +33,6 @@ function App() {
   const [showRecordingGuide, setShowRecordingGuide] = useState(false);
   const [currentMessage, setCurrentMessage] = useState("");
   const [isConverting, setIsConverting] = useState(false);
-  const {toast} = useToast();
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -41,11 +54,7 @@ function App() {
       setIsNameSubmitted(true);
       setShowRecordingGuide(true);
     } catch (error) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to process your name. Please try again.",
-      });
+      alert("Failed to process your name. Please try again.");
     }
   };
 
@@ -95,11 +104,7 @@ function App() {
 
   const handleSpeechToText = () => {
     if (!('webkitSpeechRecognition' in window)) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Speech recognition is not supported in this browser.",
-      });
+      alert("Speech recognition is not supported in this browser");
       return;
     }
 
@@ -138,25 +143,52 @@ function App() {
 
   const sendMessage = async (text: string, voiceId: string) => {
     try {
-      const response = await fetch("/api/chat", {
+      // 2. AI Chat Response API
+      const chatResponse = await fetch("/api/chat/response", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
           message: text,
-          voiceId: voiceId,
         }),
       });
 
-      if (!response.ok) throw new Error("Failed to send message");
+      if (!chatResponse.ok) {
+        throw new Error("Failed to get AI response");
+      }
 
-      const data = await response.json();
-      if (data.audioUrl) {
-        playResponseAudio(data.audioUrl);
+      const chatData: ChatResponse = await chatResponse.json();
+      
+      if (chatData.success && chatData.text) {
+        // 3. Voice Synthesis API
+        const synthesisResponse = await fetch("/api/voice/synthesize", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            text: chatData.text,
+            voiceId: voiceId,
+          }),
+        });
+
+        if (!synthesisResponse.ok) {
+          throw new Error("Failed to synthesize voice");
+        }
+
+        const synthesisData: VoiceSynthesisResponse = await synthesisResponse.json();
+        
+        if (synthesisData.success && synthesisData.audioUrl) {
+          // Display the AI response text
+          setCurrentMessage(chatData.text);
+          // Play the synthesized audio
+          playResponseAudio(synthesisData.audioUrl);
+        }
       }
     } catch (error) {
-      alert("Failed to send message");
+      console.error("Message processing failed:", error);
+      alert("Failed to process message");
     }
   };
 
@@ -248,6 +280,7 @@ function App() {
     setCloningProgress(0);
 
     try {
+      // 1. Voice Cloning API
       const formData = new FormData();
       formData.append("audio", audioBlob);
       formData.append("username", userName);
@@ -259,7 +292,7 @@ function App() {
         });
       }, 500);
 
-      const response = await fetch("/api/clone", {
+      const response = await fetch("/api/voice/clone", {
         method: "POST",
         body: formData,
       });
@@ -271,7 +304,7 @@ function App() {
       clearInterval(progressInterval);
       setCloningProgress(100);
 
-      const data = await response.json();
+      const data: CloneResponse = await response.json();
       if (data.voiceId) {
         setVoiceId(data.voiceId);
         setIsCallActive(true);
@@ -279,11 +312,7 @@ function App() {
       }
     } catch (error) {
       console.error("Cloning failed:", error);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Voice cloning failed. Please try again.",
-      });
+      alert("Voice cloning failed. Please try again.");
     } finally {
       setIsCloning(false);
     }
@@ -300,7 +329,7 @@ function App() {
       <div className="max-w-7xl mx-auto flex flex-wrap gap-8">
         {/* Left Section - Initial Setup */}
         <div className="flex-1 min-w-[45%]">
-          <div className=" p-6 rounded-lg shadow-md space-y-6">
+          <div className="p-6 rounded-lg shadow-md space-y-6">
             {!isNameSubmitted ? (
               <div className="space-y-4">
                 <h2 className="text-2xl font-bold">Personal Assistant</h2>
@@ -327,7 +356,7 @@ function App() {
                 <h2 className="text-2xl font-bold">{welcomeMessage}</h2>
                 {showRecordingGuide && (
                   <div className="bg-primary/10 p-4 rounded-lg mb-4">
-                    <p className="text-2xl text-primary font-bold">
+                    <p className="text-2xl text-primary font-bolm">
                       Please press the microphone button below and read the following text:
                     </p>
                   </div>
@@ -513,7 +542,7 @@ function App() {
                   className={`w-12 h-12 rounded-full flex items-center justify-center ${
                     !currentMessage || isConverting
                       ? "bg-gray-300 cursor-not-allowed"
-                      : "bg-blue-500 text-white"
+                      : "bg-white text-black"
                   }`}
                   disabled={!currentMessage || isConverting}
                   onClick={() => {
