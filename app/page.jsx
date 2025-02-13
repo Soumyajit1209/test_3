@@ -55,7 +55,7 @@ export default function Home() {
 
   const handleSend = async () => {
     if (!input.trim()) return;
-
+  
     const userMessage = {
       role: "user",
       content: input
@@ -63,17 +63,31 @@ export default function Home() {
     setMessages(prev => [...prev, userMessage]);
     setInput("");
     setIsLoading(true);
-
+  
     try {
-      // Simulate API call - Replace with your actual backend call
-      const response = await new Promise(resolve => 
-        setTimeout(() => resolve({ 
-          role: "assistant", 
-          content: "This is a simulated response. Replace this with your actual backend integration." 
-        }), 1000)
-      );
-
-      setMessages(prev => [...prev, response]);
+      const response = await fetch("https://api.globaltfn.tech/aboutazmth", {
+        method: "POST",
+        headers: {
+          "Accept": "application/json",
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ userInput: userMessage.content })
+      });
+  
+      const data = await response.json();
+      if (data.status_code === 200) {
+        const assistantMessage = {
+          role: "assistant",
+          content: data.data
+        };
+        setMessages(prev => [...prev, assistantMessage]);
+  
+        // Text-to-Speech for response
+        // if ('speechSynthesis' in window) {
+        //   const utterance = new SpeechSynthesisUtterance(data.data);
+        //   window.speechSynthesis.speak(utterance);
+        // }
+      }
     } catch (error) {
       console.error("Failed to send message:", error);
     } finally {
@@ -110,8 +124,8 @@ export default function Home() {
   };
 
   return (
-    <div className="flex h-screen bg-background">
-      <Sidebar onNewChat={handleNewChat} />
+    <div className="flex flex-col md:flex-row h-screen bg-background">
+      <Sidebar className="" onNewChat={handleNewChat} />
       
       <main className="flex-1 flex flex-col">
         <ScrollArea className="flex-1 p-4">

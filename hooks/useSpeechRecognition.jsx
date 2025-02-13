@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 
 export function useSpeechRecognition() {
   const [isListening, setIsListening] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [recognition, setRecognition] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -43,20 +44,26 @@ export function useSpeechRecognition() {
   const handleSpeechEnd = async (finalTranscript) => {
     setIsProcessing(true);
     try {
-      // Simulate API call - Replace with your actual backend call
-      const response = await new Promise(resolve => 
-        setTimeout(() => resolve({ 
-          text: "This is a simulated response. Replace this with your actual backend integration.",
-          audio: null // In a real implementation, this would be the audio response
-        }), 1000)
-      );
+      const response = await fetch("https://api.globaltfn.tech/aboutazmth", {
+        method: "POST",
+        headers: {
+          "Accept": "application/json",
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ userInput: finalTranscript })
+      });
 
-      setResponseText(response.text);
+      const data = await response.json();
+      if (data.status_code === 200) {
+        setResponseText(data.data);
 
-      // Text-to-speech
-      if ('speechSynthesis' in window) {
-        const utterance = new SpeechSynthesisUtterance(response.text);
-        window.speechSynthesis.speak(utterance);
+        // Text-to-speech
+        if ('speechSynthesis' in window) {
+          const utterance = new SpeechSynthesisUtterance(data.data);
+          utterance.onstart = () => setIsSpeaking(true);
+          utterance.onend = () => setIsSpeaking(false);
+          window.speechSynthesis.speak(utterance);
+        }
       }
     } catch (error) {
       console.error("Failed to process speech:", error);
@@ -64,6 +71,7 @@ export function useSpeechRecognition() {
       setIsProcessing(false);
     }
   };
+
 
   const startListening = useCallback(() => {
     if (recognition) {
@@ -83,6 +91,7 @@ export function useSpeechRecognition() {
 
   return {
     isListening,
+    isSpeaking,
     transcript,
     startListening,
     stopListening,
