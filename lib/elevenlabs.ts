@@ -1,12 +1,12 @@
-import axios from "axios"
+import axios from "axios";
 
-const ELEVENLABS_API_KEY = process.env.NEXT_PUBLIC_ELEVENLABS_API_KEY
-const ELEVENLABS_API_URL = "https://api.elevenlabs.io/v1"
+const ELEVENLABS_API_KEY = process.env.NEXT_PUBLIC_ELEVENLABS_API_KEY;
+const ELEVENLABS_API_URL = "https://api.elevenlabs.io/v1";
 
 export async function cloneVoice(audioBlob: Blob, userName: string): Promise<{ voice_id: string; success: boolean }> {
-  const formData = new FormData()
-  formData.append("name", userName)
-  formData.append("files", audioBlob, "voice_sample.wav")
+  const formData = new FormData();
+  formData.append("name", userName);
+  formData.append("files", audioBlob, "voice_sample.wav");
 
   try {
     const response = await axios.post(`${ELEVENLABS_API_URL}/voices/add`, formData, {
@@ -14,12 +14,35 @@ export async function cloneVoice(audioBlob: Blob, userName: string): Promise<{ v
         "xi-api-key": ELEVENLABS_API_KEY,
         "Content-Type": "multipart/form-data",
       },
-    })
+    });
 
-    return { voice_id: response.data.voice_id, success: true }
+    const voice_id = response.data.voice_id;
+    
+    // Store voice_id and username in session storage
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem("voice_id", voice_id);
+      sessionStorage.setItem("user_name", userName);
+    }
+    return { voice_id, success: true };
   } catch (error) {
-    console.error("Voice cloning failed:", error)
-    return { voice_id: "", success: false }
+    console.error("Voice cloning failed:", error);
+    return { voice_id: "", success: false };
+  }
+}
+
+export async function deleteVoice(voice_id: string): Promise<boolean> {
+  try {
+    await axios.delete(`${ELEVENLABS_API_URL}/voices/${voice_id}`, {
+      headers: {
+        "xi-api-key": ELEVENLABS_API_KEY,
+      },
+    });
+
+    console.log("Voice deleted successfully:", voice_id);
+    return true;
+  } catch (error) {
+    console.error("Voice deletion failed:", error);
+    return false;
   }
 }
 
@@ -34,14 +57,27 @@ export async function synthesizeVoice(text: string, voice_id: string): Promise<s
           "Content-Type": "application/json",
         },
         responseType: "arraybuffer",
-      },
-    )
+      }
+    );
 
-    const audioBlob = new Blob([response.data], { type: "audio/mpeg" })
-    return URL.createObjectURL(audioBlob)
+    const audioBlob = new Blob([response.data], { type: "audio/mpeg" });
+    return URL.createObjectURL(audioBlob);
   } catch (error) {
-    console.error("Voice synthesis failed:", error)
-    return null
+    console.error("Voice synthesis failed:", error);
+    return null;
   }
 }
 
+
+export function registerUnloadHandler() {
+  if (typeof window !== "undefined") {
+    window.addEventListener("beforeunload", async () => {
+      const voice_id = sessionStorage.getItem("voice_id");
+      if (voice_id) {
+        await deleteVoice(voice_id);
+        sessionStorage.removeItem("voice_id");
+        sessionStorage.removeItem("user_name");
+      }
+    });
+  }
+}

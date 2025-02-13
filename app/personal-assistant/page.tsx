@@ -16,6 +16,7 @@ import {
 import { cloneVoice, synthesizeVoice } from "@/lib/elevenlabs";
 import { getChatResponse } from "@/lib/chat";
 import { useToast } from "@/hooks/use-toast";
+import { registerUnloadHandler } from "@/lib/elevenlabs";
 //import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition'; // Import useSpeechRecognition hook
 
 interface CloneResponse {
@@ -64,6 +65,11 @@ function App() {
       }
     };
   }, []);
+  
+  useEffect(() => {
+    registerUnloadHandler();
+  }, []);
+
   const handleNameSubmit = () => {
     if (userName.trim() === "") {
       alert("Please enter your name");
@@ -213,7 +219,18 @@ function App() {
       }
     } catch (error) {
       console.error("Cloning failed:", error);
-      alert("Voice cloning failed. Please try again.");
+      
+      if ((error as any).response?.status === 401) {
+        toast.toast({
+          variant: "destructive",
+          title: "Error",
+          description:
+            "All voices are used... Please try again later.",
+        });;
+      } else {
+        alert("Voice cloning failed. Please try again.");
+      }
+      
     } finally {
       setIsCloning(false);
     }
