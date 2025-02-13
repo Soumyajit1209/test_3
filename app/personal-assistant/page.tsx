@@ -11,6 +11,7 @@ import {
   Send,
   RotateCcw,
   Play,
+  Pause,
 } from "lucide-react";
 import { cloneVoice, synthesizeVoice } from "@/lib/elevenlabs";
 import { getChatResponse } from "@/lib/chat";
@@ -59,10 +60,10 @@ function App() {
   useEffect(() => {
     return () => {
       if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current)
+        cancelAnimationFrame(animationFrameRef.current);
       }
-    }
-  }, [])
+    };
+  }, []);
   const handleNameSubmit = () => {
     if (userName.trim() === "") {
       alert("Please enter your name");
@@ -279,6 +280,29 @@ function App() {
     const remainingSeconds = seconds % 60;
     return `${minutes}:${remainingSeconds < 10 ? "0" : ""}${remainingSeconds}`;
   };
+  let audioInstance: HTMLAudioElement | null = null;
+  let isPlaying = false;
+
+  function handlePlayPause(audioBlob: Blob) {
+    if (!audioBlob) return;
+
+    if (!audioInstance) {
+      // Create a new audio instance if not already created
+      audioInstance = new Audio(URL.createObjectURL(audioBlob));
+      audioInstance.onended = () => {
+        isPlaying = false;
+      };
+    }
+
+    if (audioInstance.paused) {
+      audioInstance.play();
+      isPlaying = true;
+    } else {
+      audioInstance.pause();
+      isPlaying = false;
+    }
+  }
+
   return (
     <div className="min-h-screen bg-background p-8">
       <div className="max-w-7xl mx-auto flex flex-wrap gap-8">
@@ -387,14 +411,7 @@ function App() {
                       <button
                         className="p-2 bg-gray-200 text-gray-700 rounded-lg"
                         disabled={!audioBlob || isRecording}
-                        onClick={() => {
-                          if (audioBlob) {
-                            const audio = new Audio(
-                              URL.createObjectURL(audioBlob)
-                            );
-                            audio.play();
-                          }
-                        }}
+                        onClick={() => audioBlob && handlePlayPause(audioBlob)}
                       >
                         <Play className="h-4 w-4" />
                       </button>
@@ -547,7 +564,7 @@ function App() {
           </div>
         </div>
       )}
-       <footer className="w-full text-center py-4 text-gray-500 mt-8">
+      <footer className="w-full text-center py-4 text-gray-500 mt-8">
         azmth - All Rights Reserved.
       </footer>
     </div>
