@@ -65,7 +65,7 @@ function App() {
       }
     };
   }, []);
-  
+
   useEffect(() => {
     registerUnloadHandler();
   }, []);
@@ -113,6 +113,15 @@ function App() {
             "Failed to access microphone. Please check your permissions.",
         });
       });
+  };
+  const stopSpeechToText = () => {
+    setIsConverting(false); // Stop the conversion process
+    setCurrentMessage(""); // Clear the message if needed
+    if (audioRef.current) {
+      audioRef.current.pause(); // Stop any ongoing audio playback
+      audioRef.current.src = ""; // Reset audio source
+    }
+    //console.log("Speech-to-text conversion stopped.");
   };
   const setupAudioVisualization = (stream: MediaStream) => {
     if (!canvasRef.current) return;
@@ -219,18 +228,16 @@ function App() {
       }
     } catch (error) {
       console.error("Cloning failed:", error);
-      
+
       if ((error as any).response?.status === 401) {
         toast.toast({
           variant: "destructive",
           title: "Error",
-          description:
-            "All voices are used... Please try again later.",
-        });;
+          description: "All voices are used... Please try again later.",
+        });
       } else {
         alert("Voice cloning failed. Please try again.");
       }
-      
     } finally {
       setIsCloning(false);
     }
@@ -525,7 +532,13 @@ function App() {
                       ? "bg-red-500 text-white"
                       : "bg-blue-500 text-white"
                   }`}
-                  onClick={isConverting ? () => {} : handleSpeechToText}
+                  onClick={() => {
+                    if (isConverting) {
+                      stopSpeechToText(); // Stop recording
+                    } else {
+                      handleSpeechToText(); // Start recording
+                    }
+                  }}
                 >
                   {isConverting ? (
                     <Square className="w-6 h-6" />
