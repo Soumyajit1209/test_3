@@ -72,7 +72,12 @@ function App() {
 
   const handleNameSubmit = () => {
     if (userName.trim() === "") {
-      alert("Please enter your name");
+      toast.toast({
+        variant: "default",
+        title: "Hello there! 🤖",
+        description:
+          "Please enter your name..",
+      });
       return;
     }
     setIsNameSubmitted(true);
@@ -193,7 +198,7 @@ function App() {
         variant: "destructive",
         title: "Error",
         description:
-          "Please enter your name and record audio before proceeding",
+          "Please record audio before proceeding",
       });
       return;
     }
@@ -236,7 +241,12 @@ function App() {
           description: "All voices are used... Please try again later.",
         });
       } else {
-        alert("Voice cloning failed. Please try again.");
+        toast.toast({
+          variant: "destructive",
+          title: "Error",
+          description:
+            "Voice clonning failed. Please try again later.",
+        });
       }
     } finally {
       setIsCloning(false);
@@ -245,7 +255,12 @@ function App() {
 
   const handleSpeechToText = () => {
     if (!("webkitSpeechRecognition" in window)) {
-      alert("Speech recognition is not supported in this browser");
+      toast.toast({
+        variant: "destructive",
+        title: "Error",
+        description:
+          "Speech recognition is not supported in your browser.",
+      });
       return;
     }
     setIsConverting(true);
