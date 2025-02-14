@@ -464,8 +464,8 @@ function App() {
 
         {/* Right Section - Call Interface */}
         {voice_id && (
-          <div className="flex-1 min-w-[45%]">
-            <div className="bg-background p-6 rounded-lg shadow-md space-y-6">
+          <div className="fixed inset-0 flex justify-center items-center">
+            <div className="bg-background p-6 rounded-lg shadow-md space-y-6 w-[45%]">
               <div className="flex justify-center gap-8 mb-8">
                 <div className="relative">
                   <div
@@ -581,7 +581,7 @@ function App() {
           </div>
         </div>
       )}
-      <footer className="w-full text-center py-4 text-gray-500 mt-8">
+      <footer className="w-full text-center py-4 text-gray-500 mt-auto">
         azmth - All Rights Reserved.
       </footer>
     </div>
