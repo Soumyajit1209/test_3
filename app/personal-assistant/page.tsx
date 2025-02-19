@@ -17,7 +17,7 @@ import { cloneVoice, synthesizeVoice } from "@/lib/elevenlabs";
 import { getChatResponse } from "@/lib/chat";
 import { useToast } from "@/hooks/use-toast";
 import { registerUnloadHandler } from "@/lib/elevenlabs";
-//import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition'; // Import useSpeechRecognition hook
+// import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition'; // Import useSpeechRecognition hook
 
 interface CloneResponse {
   voice_id: string;
@@ -31,7 +31,7 @@ function App() {
   const [cloningProgress, setCloningProgress] = useState(0);
   const [isCallActive, setIsCallActive] = useState(false);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
-  const [voice_id, setVoice_id] = useState<string | null>(null);
+  const [voice_id, setVoice_id] = useState<string | null>("z8nv38zRVDhoymPBPACM");
   const [userName, setUserName] = useState("");
   const [isNameSubmitted, setIsNameSubmitted] = useState(false);
   const [welcomeMessage, setWelcomeMessage] = useState("");
@@ -73,8 +73,8 @@ function App() {
   const handleNameSubmit = () => {
     if (userName.trim() === "") {
       toast.toast({
-        variant: "default",
-        title: "Hello there! 🤖",
+        variant: "destructive",
+        title: "Oh!!",
         description:
           "Please enter your name..",
       });
@@ -153,11 +153,11 @@ function App() {
 
       analyserRef.current!.getByteTimeDomainData(dataArray);
 
-      canvasCtx.fillStyle = "rgb(200, 200, 200)";
+      canvasCtx.fillStyle = "rgb(10, 10, 10)";
       canvasCtx.fillRect(0, 0, WIDTH, HEIGHT);
 
       canvasCtx.lineWidth = 2;
-      canvasCtx.strokeStyle = "rgb(0, 0, 0)";
+      canvasCtx.strokeStyle = "rgb(255, 255, 255)";
 
       canvasCtx.beginPath();
 
@@ -233,7 +233,13 @@ function App() {
       }
     } catch (error) {
       console.error("Cloning failed:", error);
-
+      if ((error as any).response?.status === 400) {
+        toast.toast({
+          variant: "destructive",
+          title: "Error",
+          description: "All voices are used... Please try again later.",
+        });
+      }
       if ((error as any).response?.status === 401) {
         toast.toast({
           variant: "destructive",
@@ -350,7 +356,7 @@ function App() {
           <div className="p-6 rounded-lg shadow-md space-y-6">
             {!isNameSubmitted ? (
               <div className="space-y-4">
-                <h2 className="text-2xl font-bold">Personal Assistant</h2>
+                <h2 className="text-3xl font-bold">Personal Assistant</h2>
                 <div className="flex gap-2">
                   <input
                     className="flex-1 px-4 py-2 border rounded-lg"
@@ -371,47 +377,47 @@ function App() {
               </div>
             ) : !voice_id ? (
               <div className="space-y-4">
-                <h2 className="text-2xl font-bold">{welcomeMessage}</h2>
+                <h2 className="text-3xl font-bold">{welcomeMessage}</h2>
                 {showRecordingGuide && (
                   <div className="bg-primary/10 p-4 rounded-lg mb-4">
-                    <p className="text-2xl text-primary font-bolm">
+                    <p className="text-xl text-primary font-bolm">
                       Please press the microphone button below and read the
                       following text:
                     </p>
                   </div>
                 )}
                 <div className="prose prose-sm">
-                  <p className="text-muted-foreground leading-relaxed text-2xl">
+                  <p className="text-muted-foreground leading-relaxed text-xl font-sans">
                     Hello, my name is {userName}, and I am _______________ (Age)
                     years old. I practice _______________ (Religion) and am a
-                    _______________ (Nationality) national. My highest
-                    qualification is _______________ (Highest Qualification).
-                    With _______________ (Experience) years of experience, I
-                    currently work as a _______________ (Current Job).
+                    _______________ (Nationality). My highest
+                    qualification is _______________ (Highest Qualification).I
+                    currently work as a _______________ (Current Job),
+                    With _______________ (Experience) years of experience.
                   </p>
                   <div className="space-y-2 mt-4">
-                    <h3 className="font-bold text-2xl">
+                    <h3 className="font-bold text-xl">
                       Today&apos;s Schedule
                     </h3>
                     <ul className="space-y-2 list-none pl-0">
-                      <li className="text-2xl text-gray-400">
-                        10:00 AM - Meeting with John from Marketing
+                      <li className="text-xl text-gray-400">
+                        10:00 AM - Meeting with Tridha from Marketing.
                       </li>
-                      <li className="text-2xl text-gray-400">
-                        1:00 PM - Meeting with Emily from Sales
+                      <li className="text-xl text-gray-400">
+                        1:00 PM - Meeting with Priyanshu from Sales.
                       </li>
-                      <li className="text-2xl text-gray-400">
-                        3:30 PM - Meeting with David from IT
+                      <li className="text-xl text-gray-400">
+                        3:30 PM - Meeting with Dron from IT.
                       </li>
                     </ul>
                   </div>
                 </div>
 
                 <div className="space-y-4">
-                  <div className="h-10">
+                  <div className="h-10 border rounded-md">
                     <canvas
                       ref={canvasRef}
-                      className="w-full h-full"
+                      className="w-full h-full "
                       width={600}
                       height={40}
                     />
@@ -511,18 +517,18 @@ function App() {
                         : ""
                     }`}
                   >
-                    <Bot className="w-16 h-16 text-gray-400" />
+                    <Bot className="w-16 h-16 text-gray-800" />
                   </div>
                 </div>
               </div>
 
               {/* Text Display */}
-              <div className="bg-gray-50 p-4 rounded-lg mb-4 min-h-[60px]">
+              <div className="p-4 rounded-lg mb-4 min-h-[60px]">
                 <p className="text-sm">
                   {currentMessage || "Your message will appear here..."}
                 </p>
                 {isConverting && (
-                  <p className="text-xs text-gray-500 mt-2">
+                  <p className="text-xs text-gray-800 mt-2">
                     azmth is recording your voice...
                   </p>
                 )}
