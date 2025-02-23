@@ -354,12 +354,23 @@ function App() {
     setVoice_id(null);
     setCurrentMessage("");
     setShowCallInterface(false);
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.src = "";
+    }
   };
 
   const handleCallAgain = () => {
-    setIsCallActive(true);
+    setIsCallActive(false);
     setVoice_id("z8nv38zRVDhoymPBPACM"); // Reset voice_id to initial value or a valid value
     setShowCallInterface(true);
+    setCurrentMessage("");
+    setAudioBlob(null);
+    setRecordingTime(0);
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.src = "";
+    }
   };
 
   return (
