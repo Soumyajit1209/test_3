@@ -376,6 +376,7 @@ function App() {
   const handleRefresh = () => {
     setAudioBlob(null);
     setRecordingTime(0);
+    setCurrentMessage(""); // Clear the text response
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.src = "";
