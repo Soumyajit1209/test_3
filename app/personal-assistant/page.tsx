@@ -38,6 +38,7 @@ function App() {
   const [showRecordingGuide, setShowRecordingGuide] = useState(false);
   const [currentMessage, setCurrentMessage] = useState("");
   const [isConverting, setIsConverting] = useState(false);
+  const [showCallInterface, setShowCallInterface] = useState(false);
   const toast = useToast();
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -348,6 +349,40 @@ function App() {
     }
   }
 
+  const handleEndCall = () => {
+    setIsCallActive(false);
+    setVoice_id(null);
+    setCurrentMessage("");
+    setShowCallInterface(false);
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.src = "";
+    }
+  };
+
+  const handleCallAgain = () => {
+    setIsCallActive(false);
+    setVoice_id("z8nv38zRVDhoymPBPACM"); // Reset voice_id to initial value or a valid value
+    setShowCallInterface(true);
+    setCurrentMessage("");
+    setAudioBlob(null);
+    setRecordingTime(0);
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.src = "";
+    }
+  };
+
+  const handleRefresh = () => {
+    setAudioBlob(null);
+    setRecordingTime(0);
+    setCurrentMessage(""); // Clear the text response
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.src = "";
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background p-8">
       <div className="max-w-7xl mx-auto flex flex-wrap gap-8">
@@ -481,7 +516,10 @@ function App() {
                       : "bg-white text-black"
                   }`}
                   disabled={!audioBlob || isCloning}
-                  onClick={handleCloning}
+                  onClick={() => {
+                    handleCloning();
+                    setShowCallInterface(true);
+                  }}
                 >
                   Proceed with Cloning
                 </button>
@@ -491,7 +529,7 @@ function App() {
         </div>
 
         {/* Right Section - Call Interface */}
-        {voice_id && (
+        {voice_id && showCallInterface && (
           <div className="fixed inset-0 flex justify-center items-center">
             <div className="bg-background p-6 rounded-lg shadow-md space-y-6 w-[45%]">
               <div className="flex justify-center gap-8 mb-8">
@@ -538,11 +576,7 @@ function App() {
               <div className="flex justify-center gap-4">
                 <button
                   className="w-12 h-12 bg-red-500 text-white rounded-full flex items-center justify-center"
-                  onClick={() => {
-                    setIsCallActive(false);
-                    setVoice_id(null);
-                    setCurrentMessage("");
-                  }}
+                  onClick={handleEndCall}
                 >
                   <Phone className="w-6 h-6" />
                 </button>
@@ -570,9 +604,7 @@ function App() {
 
                 <button
                   className="w-12 h-12 bg-gray-200 text-gray-700 rounded-full flex items-center justify-center"
-                  onClick={() => {
-                    setCurrentMessage("");
-                  }}
+                  onClick={handleRefresh}
                 >
                   <RefreshCw className="w-6 h-6" />
                 </button>
@@ -593,6 +625,16 @@ function App() {
                 </button>
               </div>
             </div>
+          </div>
+        )}
+        {!showCallInterface && (
+          <div className="fixed inset-0 flex justify-center items-center">
+            <button
+              className="px-4 py-2 bg-blue-500 text-white rounded-lg"
+              onClick={handleCallAgain}
+            >
+              Call Now
+            </button>
           </div>
         )}
         {/* Audio Element */}
