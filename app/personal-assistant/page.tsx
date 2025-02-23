@@ -373,6 +373,15 @@ function App() {
     }
   };
 
+  const handleRefresh = () => {
+    setAudioBlob(null);
+    setRecordingTime(0);
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.src = "";
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background p-8">
       <div className="max-w-7xl mx-auto flex flex-wrap gap-8">
@@ -594,9 +603,7 @@ function App() {
 
                 <button
                   className="w-12 h-12 bg-gray-200 text-gray-700 rounded-full flex items-center justify-center"
-                  onClick={() => {
-                    setCurrentMessage("");
-                  }}
+                  onClick={handleRefresh}
                 >
                   <RefreshCw className="w-6 h-6" />
                 </button>
