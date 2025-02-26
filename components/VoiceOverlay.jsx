@@ -11,7 +11,6 @@ function AudioSphere({ frequency }) {
   
   useEffect(() => {
     if (meshRef.current) {
-      // Morph the sphere based on audio frequency
       const scale = 1 + (frequency / 255) * 0.5;
       meshRef.current.scale.set(scale, scale, scale);
     }
@@ -32,7 +31,8 @@ function AudioSphere({ frequency }) {
 }
 
 export function VoiceOverlay({ 
-  isListening, 
+  isListening,
+  stopListening,
   onClose, 
   onToggleListen,
   transcript,
@@ -42,21 +42,21 @@ export function VoiceOverlay({
   const [audioFrequency, setAudioFrequency] = useState(0);
   const audioContextRef = useRef(null);
   const analyserRef = useRef(null);
+  const streamRef = useRef(null);
   const sourceRef = useRef(null);
   const animationFrameRef = useRef(null);
 
   useEffect(() => {
     if (isListening) {
-      // Initialize audio context and analyzer
       audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
       analyserRef.current = audioContextRef.current.createAnalyser();
       
       navigator.mediaDevices.getUserMedia({ audio: true })
         .then(stream => {
+          streamRef.current = stream; // Store the stream reference
           sourceRef.current = audioContextRef.current.createMediaStreamSource(stream);
           sourceRef.current.connect(analyserRef.current);
           
-          // Start analyzing audio
           const analyzeAudio = () => {
             const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
             analyserRef.current.getByteFrequencyData(dataArray);
@@ -71,20 +71,42 @@ export function VoiceOverlay({
           analyzeAudio();
         })
         .catch(err => console.error("Error accessing microphone:", err));
-        
-      return () => {
-        if (animationFrameRef.current) {
-          cancelAnimationFrame(animationFrameRef.current);
-        }
-        if (sourceRef.current) {
-          sourceRef.current.disconnect();
-        }
-        if (audioContextRef.current) {
-          audioContextRef.current.close();
-        }
-      };
     }
+
+    return () => {
+      cleanupAudio();
+    };
   }, [isListening]);
+
+  // Function to cleanup and stop the microphone stream
+  const cleanupAudio = () => {
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+    }
+    if (sourceRef.current) {
+      sourceRef.current.disconnect();
+    }
+    if (audioContextRef.current) {
+      audioContextRef.current.close();
+      audioContextRef.current = null;
+    }
+    if (streamRef.current) {  // ✅ Now properly handled
+      streamRef.current.getTracks().forEach(track => track.stop()); // Stop the microphone stream
+      streamRef.current = null;
+    }
+  };
+  // Handle overlay close
+  const handleClose = () => {
+    if (stopListening) {
+      stopListening();
+    }
+    cleanupAudio();
+    if (onClose) {
+      onClose();
+    }
+  };
+  
+
 
   return (
     <div 
@@ -95,7 +117,7 @@ export function VoiceOverlay({
         variant="ghost" 
         size="icon" 
         className="absolute top-4 right-4 text-foreground/60 hover:text-foreground"
-        onClick={onClose}
+        onClick={handleClose}
       >
         <X className="h-6 w-6" />
       </Button>

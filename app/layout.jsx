@@ -14,7 +14,7 @@ const urbanist = Urbanist({
 
 export const metadata = {
   title: 'azmth - Home',
-  description: 'Modern chat interface with dark theme',
+  description: 'A AI solution for your life',
 };
 
 
