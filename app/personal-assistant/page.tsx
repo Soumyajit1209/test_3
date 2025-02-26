@@ -21,8 +21,8 @@ import {
 } from "@/lib/elevenlabs";
 import { getChatResponse } from "@/lib/chat";
 import { useToast } from "@/hooks/use-toast";
-import { registerUnloadHandler } from "@/lib/elevenlabs";
-//import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition'; // Import useSpeechRecognition hook
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+//import ParticleBackground from "./background-animation";
 
 interface CloneResponse {
   voice_id: string;
@@ -62,14 +62,14 @@ export default function App() {
   const [cloningProgress, setCloningProgress] = useState(0);
   const [isCallActive, setIsCallActive] = useState(false);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
-  const [voice_id, setVoice_id] = useState<string | null>("z8nv38zRVDhoymPBPACM");
+  const [voice_id, setVoice_id] = useState<string | null>(null);
   const [userName, setUserName] = useState("");
   const [isNameSubmitted, setIsNameSubmitted] = useState(false);
   const [welcomeMessage, setWelcomeMessage] = useState("");
   const [showRecordingGuide, setShowRecordingGuide] = useState(false);
   const [currentMessage, setCurrentMessage] = useState("");
   const [isConverting, setIsConverting] = useState(false);
-  const toast = useToast();
+  const { toast } = useToast();
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -99,11 +99,10 @@ export default function App() {
 
   const handleNameSubmit = () => {
     if (userName.trim() === "") {
-      toast.toast({
-        variant: "default",
-        title: "Hello there! 🤖",
-        description:
-          "Please enter your name..",
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Please enter your name",
       });
       return;
     }
@@ -146,70 +145,6 @@ export default function App() {
             "Failed to access microphone. Please check your permissions.",
         });
       });
-  };
-  const stopSpeechToText = () => {
-    setIsConverting(false); // Stop the conversion process
-    setCurrentMessage(""); // Clear the message if needed
-    if (audioRef.current) {
-      audioRef.current.pause(); // Stop any ongoing audio playback
-      audioRef.current.src = ""; // Reset audio source
-    }
-    //console.log("Speech-to-text conversion stopped.");
-  };
-  const setupAudioVisualization = (stream: MediaStream) => {
-    if (!canvasRef.current) return;
-
-    audioContextRef.current = new (window.AudioContext ||
-      (window as any).webkitAudioContext)();
-    analyserRef.current = audioContextRef.current.createAnalyser();
-    const source = audioContextRef.current.createMediaStreamSource(stream);
-    source.connect(analyserRef.current);
-
-    analyserRef.current.fftSize = 2048;
-    const bufferLength = analyserRef.current.frequencyBinCount;
-    const dataArray = new Uint8Array(bufferLength);
-
-    const canvas = canvasRef.current;
-    const canvasCtx = canvas.getContext("2d");
-    if (!canvasCtx) return;
-
-    const draw = () => {
-      const WIDTH = canvas.width;
-      const HEIGHT = canvas.height;
-
-      animationFrameRef.current = requestAnimationFrame(draw);
-
-      analyserRef.current!.getByteTimeDomainData(dataArray);
-
-      canvasCtx.fillStyle = "rgb(200, 200, 200)";
-      canvasCtx.fillRect(0, 0, WIDTH, HEIGHT);
-
-      canvasCtx.lineWidth = 2;
-      canvasCtx.strokeStyle = "rgb(0, 0, 0)";
-
-      canvasCtx.beginPath();
-
-      const sliceWidth = (WIDTH * 1.0) / bufferLength;
-      let x = 0;
-
-      for (let i = 0; i < bufferLength; i++) {
-        const v = dataArray[i] / 128.0;
-        const y = (v * HEIGHT) / 2;
-
-        if (i === 0) {
-          canvasCtx.moveTo(x, y);
-        } else {
-          canvasCtx.lineTo(x, y);
-        }
-
-        x += sliceWidth;
-      }
-
-      canvasCtx.lineTo(canvas.width, canvas.height / 2);
-      canvasCtx.stroke();
-    };
-
-    draw();
   };
 
   const stopRecording = () => {
@@ -311,21 +246,11 @@ export default function App() {
       }
     } catch (error) {
       console.error("Cloning failed:", error);
-
-      if ((error as any).response?.status === 401) {
-        toast.toast({
-          variant: "destructive",
-          title: "Error",
-          description: "All voices are used... Please try again later.",
-        });
-      } else {
-        toast.toast({
-          variant: "destructive",
-          title: "Error",
-          description:
-            "Voice clonning failed. Please try again later.",
-        });
-      }
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Voice cloning failed. Please try again.",
+      });
     } finally {
       setIsCloning(false)
     }
@@ -399,108 +324,92 @@ export default function App() {
       });
     };
 
-  const formatTime = (seconds: number) => {
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    return `${minutes}:${remainingSeconds < 10 ? "0" : ""}${remainingSeconds}`;
-  };
-  let audioInstance: HTMLAudioElement | null = null;
-  let isPlaying = false;
+    const formatTime = (seconds: number) => {
+      const minutes = Math.floor(seconds / 60);
+      const remainingSeconds = seconds % 60;
+      return `${minutes}:${
+        remainingSeconds < 10 ? "0" : ""
+      }${remainingSeconds}`;
+    };
 
-  function handlePlayPause(audioBlob: Blob) {
-    if (!audioBlob) return;
-
-    if (!audioInstance) {
-      // Create a new audio instance if not already created
-      audioInstance = new Audio(URL.createObjectURL(audioBlob));
-      audioInstance.onended = () => {
-        isPlaying = false;
-      };
-    }
-
-    if (audioInstance.paused) {
-      audioInstance.play();
-      isPlaying = true;
-    } else {
-      audioInstance.pause();
-      isPlaying = false;
-    }
-  }
-
-  return (
-    <div className="min-h-screen bg-background p-8">
-      <div className="max-w-7xl mx-auto flex flex-wrap gap-8">
-        {/* Left Section - Initial Setup */}
-        <div className="flex-1 min-w-[45%]">
-          <div className="p-6 rounded-lg shadow-md space-y-6">
-            {!isNameSubmitted ? (
-              <div className="space-y-4">
-                <h2 className="text-2xl font-bold">Personal Assistant</h2>
-                <div className="flex gap-2">
-                  <input
-                    className="flex-1 px-4 py-2 border rounded-lg"
-                    placeholder="Enter your name"
-                    value={userName}
-                    onChange={(e) => setUserName(e.target.value)}
-                    onKeyPress={(e) => {
-                      if (e.key === "Enter") handleNameSubmit();
-                    }}
-                  />
-                  <button
-                    className="px-4 py-2 bg-white text-black rounded-lg"
-                    onClick={handleNameSubmit}
-                  >
-                    <Send className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-            ) : !voice_id ? (
-              <div className="space-y-4">
-                <h2 className="text-2xl font-bold">{welcomeMessage}</h2>
-                {showRecordingGuide && (
-                  <div className="bg-primary/10 p-4 rounded-lg mb-4">
-                    <p className="text-2xl text-primary font-bolm">
-                      Please press the microphone button below and read the
-                      following text:
-                    </p>
-                  </div>
-                )}
-                <div className="prose prose-sm">
-                  <p className="text-muted-foreground leading-relaxed text-2xl">
-                    Hello, my name is {userName}, and I am _______________ (Age)
-                    years old. I practice _______________ (Religion) and am a
-                    _______________ (Nationality) national. My highest
-                    qualification is _______________ (Highest Qualification).
-                    With _______________ (Experience) years of experience, I
-                    currently work as a _______________ (Current Job).
-                  </p>
-                  <div className="space-y-2 mt-4">
-                    <h3 className="font-bold text-2xl">
-                      Today&apos;s Schedule
-                    </h3>
-                    <ul className="space-y-2 list-none pl-0">
-                      <li className="text-2xl text-gray-400">
-                        10:00 AM - Meeting with John from Marketing
-                      </li>
-                      <li className="text-2xl text-gray-400">
-                        1:00 PM - Meeting with Emily from Sales
-                      </li>
-                      <li className="text-2xl text-gray-400">
-                        3:30 PM - Meeting with David from IT
-                      </li>
-                    </ul>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="h-10">
-                    <canvas
-                      ref={canvasRef}
-                      className="w-full h-full"
-                      width={600}
-                      height={40}
+    return (
+      <div className="min-h-screen bg-gray-900/50 flex items-center justify-center p-4">
+        <AnimatePresence mode="wait">
+          {!isNameSubmitted ? (
+            <motion.div
+              key="name-card"
+              variants={cardVariants}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+              className="w-full max-w-md"
+            >
+              <Card className="bg-gray-800/80 backdrop-blur-sm border-gray-700">
+                <CardHeader>
+                  <CardTitle className="text-3xl font-bold text-white text-center">
+                    Personal Assistant
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex gap-2">
+                    <input
+                      className="flex-1 px-4 py-3 bg-gray-700 text-white rounded-lg border border-gray-600 focus:ring-2 focus:ring-blue-500"
+                      placeholder="Enter your name"
+                      value={userName}
+                      onChange={(e) => setUserName(e.target.value)}
+                      onKeyPress={(e) => {
+                        if (e.key === "Enter") handleNameSubmit();
+                      }}
                     />
+                    <button
+                      className="px-4 py-2 bg-white text-black rounded-lg hover:bg-gray-400 transition-colors"
+                      onClick={handleNameSubmit}
+                    >
+                      <Send className="h-6 w-6" />
+                    </button>
                   </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          ) : !voice_id ? (
+            <motion.div
+              key="recording-card"
+              variants={cardVariants}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+              className="w-full max-w-2xl"
+            >
+              <Card className="bg-gray-800/80 backdrop-blur-sm border-gray-700 relative overflow-hidden">
+                <CardHeader>
+                  <CardTitle className="text-2xl font-bold text-white">
+                    {welcomeMessage}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="relative z-10 space-y-6">
+                  <div className="bg-gray-700/50 p-6 rounded-xl">
+                    <p className="text-lg text-gray-200 leading-relaxed">
+                      Hello, my name is {userName}, and I am _______________
+                      (Age) years old. I practice _______________ (Religion) and
+                      am a (nationality) _______________ national. My highest
+                      qualification is _______________ (Highest Qualification).
+                      With _______________ (Experience) years of experience, I
+                      currently work as a _______________ (Current Job).
+                    </p>
+                    <div className="mt-4">
+                      <h3 className="font-bold text-xl text-white mb-2">
+                        Today&apos;s Schedule
+                      </h3>
+                      <ul className="space-y-2 text-gray-300">
+                        <li>10:00 AM - Meeting with John from Marketing</li>
+                        <li>1:00 PM - Meeting with Emily from Sales</li>
+                        <li>3:30 PM - Meeting with David from IT</li>
+                      </ul>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <WaveAnimation isRecording={isRecording} />
 
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
@@ -556,78 +465,88 @@ export default function App() {
                       </div>
                     </div>
 
-                <button
-                  className={`w-full py-3 rounded-lg ${
-                    !audioBlob || isCloning
-                      ? "bg-gray-500 text-black cursor-not-allowed"
-                      : "bg-white text-black"
-                  }`}
-                  disabled={!audioBlob || isCloning}
-                  onClick={handleCloning}
-                >
-                  Proceed with Cloning
-                </button>
-              </div>
-            ) : null}
-          </div>
-        </div>
-
-        {/* Right Section - Call Interface */}
-        {voice_id && (
-          <div className="fixed inset-0 flex justify-center items-center">
-            <div className="bg-background p-6 rounded-lg shadow-md space-y-6 w-[45%]">
-              <div className="flex justify-center gap-8 mb-8">
-                <div className="relative">
-                  <div
-                    className={`w-[150px] h-[150px] rounded-full bg-gray-100 flex items-center justify-center
-                    ${
-                      isCallActive
-                        ? "ring-4 ring-blue-500 ring-opacity-50 animate-pulse"
-                        : ""
-                    }`}
-                  >
-                    <User className="w-16 h-16 text-gray-400" />
+                    <button
+                      className={`w-full py-3 rounded-lg transition-colors ${
+                        !audioBlob || isCloning
+                          ? "bg-gray-600 text-gray-400 cursor-not-allowed"
+                          : "bg-white text-black hover:bg-white"
+                      }`}
+                      disabled={!audioBlob || isCloning}
+                      onClick={handleCloning}
+                    >
+                      {isCloning
+                        ? "Cloning in progress..."
+                        : "Proceed with Cloning"}
+                    </button>
                   </div>
-                </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="call-interface"
+              variants={cardVariants}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+              className="w-full max-w-2xl"
+            >
+              <Card className="bg-gray-800/80 backdrop-blur-sm border-gray-700">
+                <CardContent className="p-8">
+                  <div className="flex justify-center gap-8 mb-8">
+                    <motion.div
+                      className="relative"
+                      animate={{ scale: isCallActive ? [1, 1.05, 1] : 1 }}
+                      transition={{ duration: 2, repeat: Infinity }}
+                    >
+                      <div
+                        className={`w-24 h-24 rounded-full bg-gray-700 flex items-center justify-center
+                      ${
+                        isCallActive
+                          ? "ring-4 ring-blue-500 ring-opacity-50"
+                          : ""
+                      }`}
+                      >
+                        <User className="w-12 h-12 text-gray-400" />
+                      </div>
+                    </motion.div>
 
-                <div className="relative">
-                  <div
-                    className={`w-[150px] h-[150px] rounded-full bg-gray-100 flex items-center justify-center
-                    ${
-                      isCallActive
-                        ? "ring-4 ring-blue-500 ring-opacity-50 animate-pulse"
-                        : ""
-                    }`}
-                  >
-                    <Bot className="w-16 h-16 text-gray-400" />
+                    <motion.div
+                      className="relative"
+                      animate={{ scale: isCallActive ? [1, 1.05, 1] : 1 }}
+                      transition={{ duration: 2, repeat: Infinity }}
+                    >
+                      <div
+                        className={`w-24 h-24 rounded-full bg-gray-700 flex items-center justify-center
+                      ${
+                        isCallActive
+                          ? "ring-4 ring-blue-500 ring-opacity-50"
+                          : ""
+                      }`}
+                      >
+                        <Bot className="w-12 h-12 text-gray-400" />
+                      </div>
+                    </motion.div>
                   </div>
-                </div>
-              </div>
 
-              {/* Text Display */}
-              <div className="bg-gray-50 p-4 rounded-lg mb-4 min-h-[60px]">
-                <p className="text-sm">
-                  {currentMessage || "Your message will appear here..."}
-                </p>
-                {isConverting && (
-                  <p className="text-xs text-gray-500 mt-2">
-                    azmth is recording your voice...
-                  </p>
-                )}
-              </div>
+                  <div className="bg-gray-700/50 p-6 rounded-xl mb-6 min-h-[100px]">
+                    <p className="text-white">{currentMessage}</p>
+                    {isConverting && (
+                      <p className="text-sm text-gray-400 mt-2">
+                        Recording your message...
+                      </p>
+                    )}
+                  </div>
 
-              {/* Control Buttons */}
-              <div className="flex justify-center gap-4">
-                <button
-                  className="w-12 h-12 bg-red-500 text-white rounded-full flex items-center justify-center"
-                  onClick={() => {
-                    setIsCallActive(false);
-                    setVoice_id(null);
-                    setCurrentMessage("");
-                  }}
-                >
-                  <Phone className="w-6 h-6" />
-                </button>
+                  <div className="flex justify-center gap-4">
+                    <motion.button
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
+                      className="w-12 h-12 bg-red-500 text-white rounded-full flex items-center justify-center"
+                      onClick={handleEndCall}
+                    >
+                      <Phone className="w-6 h-6" />
+                    </motion.button>
 
                     <motion.button
                       whileHover={{ scale: 1.1 }}
@@ -646,36 +565,38 @@ export default function App() {
                       )}
                     </motion.button>
 
-                <button
-                  className="w-12 h-12 bg-gray-200 text-gray-700 rounded-full flex items-center justify-center"
-                  onClick={() => {
-                    setCurrentMessage("");
-                  }}
-                >
-                  <RefreshCw className="w-6 h-6" />
-                </button>
-                <button
-                  className={`w-12 h-12 rounded-full flex items-center justify-center ${
-                    !currentMessage || !voice_id
-                      ? "bg-gray-300 cursor-not-allowed"
-                      : "bg-green-500 text-white"
-                  }`}
-                  disabled={!currentMessage || !voice_id}
-                  onClick={() => {
-                    if (currentMessage && voice_id) {
-                      sendMessage(currentMessage, voice_id);
-                    }
-                  }}
-                >
-                  <Send className="w-6 h-6" />
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-        {/* Audio Element */}
-        <audio ref={audioRef} style={{ display: "none" }} />
-      </div>
+                    <motion.button
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
+                      className="w-12 h-12 bg-gray-600 text-white rounded-full flex items-center justify-center"
+                      onClick={() => setCurrentMessage("")}
+                    >
+                      <RefreshCw className="w-6 h-6" />
+                    </motion.button>
+
+                    <motion.button
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
+                      className={`w-12 h-12 rounded-full flex items-center justify-center ${
+                        !currentMessage || !voice_id
+                          ? "bg-gray-600 cursor-not-allowed"
+                          : "bg-green-500"
+                      } text-white`}
+                      disabled={!currentMessage || !voice_id}
+                      onClick={() => {
+                        if (currentMessage && voice_id) {
+                          sendMessage(currentMessage, voice_id);
+                        }
+                      }}
+                    >
+                      <Send className="w-6 h-6" />
+                    </motion.button>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <AnimatePresence>
           {isCloning && (
