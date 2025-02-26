@@ -210,51 +210,57 @@ export default function App() {
     setIsCloning(true);
     setCloningProgress(0);
 
-    try {
-      const progressInterval = setInterval(() => {
-        setCloningProgress((prev) => {
-          if (prev >= 90) return prev;
-          return prev + 5;
+      // Show progress while waiting
+  const progressInterval = setInterval(() => {
+    setCloningProgress((prev) => {
+      if (prev >= 90) return prev;
+      return prev + 5;
+    });
+  }, 500);
+
+  try {
+    // Use a timeout to prevent hanging
+    const response = await Promise.race([
+      cloneVoice(audioBlob, userName),
+      new Promise<never>((_, reject) => 
+        setTimeout(() => reject(new Error("Voice cloning timed out after 30 seconds")), 30000)
+      )
+    ]);
+
+    clearInterval(progressInterval);
+    setCloningProgress(100);
+
+    if (response.voice_id) {
+      setVoice_id(response.voice_id);
+      setIsCallActive(true);
+
+      if (response.isUsingFallback) {
+        toast({
+          title: "Notice",
+          description: "Voice cloning was not successful. Using a pre-made voice instead.",
+          variant: "default",
         });
-      }, 500);
-
-      const response = await cloneVoice(audioBlob, userName);
-
-      clearInterval(progressInterval);
-      setCloningProgress(100);
-
-      if (response.voice_id) {
-        setVoice_id(response.voice_id);
-        setIsCallActive(true);
-
-        if (response.isUsingFallback) {
-          toast({
-            title: "Notice",
-            description:
-              "Voice cloning was not successful. Using a pre-made voice instead.",
-            variant: "default",
-          });
-        } else {
-          toast({
-            title: "Success",
-            description:
-              "Voice cloned successfully! You can now start the conversation.",
-          });
-        }
       } else {
-        throw new Error("Voice cloning failed");
+        toast({
+          title: "Success",
+          description: "Voice cloned successfully! You can now start the conversation.",
+        });
       }
-    } catch (error) {
-      console.error("Cloning failed:", error);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Voice cloning failed. Please try again.",
-      });
-    } finally {
-      setIsCloning(false)
+    } else {
+      throw new Error("Voice cloning failed - no voice ID returned");
     }
+  } catch (error) {
+    console.error("Cloning failed:", error);
+    clearInterval(progressInterval);
+    toast({
+      variant: "destructive",
+      title: "Error",
+      description: `Voice cloning failed: ${(error as Error).message || "Unknown error"}`,
+    });
+  } finally {
+    setIsCloning(false);
   }
+};
 
     const handleSpeechToText = () => {
       if (!("webkitSpeechRecognition" in window)) {
@@ -290,27 +296,42 @@ export default function App() {
 
     const sendMessage = async (text: string, voice_id: string) => {
       try {
-        const chatResponse = await getChatResponse(text);
-
+        // Indicate processing state to user
+        setCurrentMessage("Processing your message...");
+        
+        // Use a timeout to prevent hanging
+        const chatResponse = await Promise.race([
+          getChatResponse(text),
+          new Promise<never>((_, reject) => 
+            setTimeout(() => reject(new Error("Chat response timed out")), 15000)
+          )
+        ]);
+    
         if (chatResponse.success && chatResponse.text) {
-          const audioUrl = await synthesizeVoice(chatResponse.text, voice_id);
-
+          const audioUrl = await Promise.race([
+            synthesizeVoice(chatResponse.text, voice_id),
+            new Promise<never>((_, reject) => 
+              setTimeout(() => reject(new Error("Voice synthesis timed out")), 15000)
+            )
+          ]);
+    
           if (audioUrl) {
             setCurrentMessage(chatResponse.text);
             playResponseAudio(audioUrl);
           } else {
-            throw new Error("Failed to synthesize voice");
+            throw new Error("Failed to synthesize voice - null response");
           }
         } else {
-          throw new Error("Failed to get chat response");
+          throw new Error(chatResponse.text || "Failed to get chat response");
         }
       } catch (error) {
         console.error("Message processing failed:", error);
         toast({
           variant: "destructive",
           title: "Error",
-          description: "Failed to process message. Please try again.",
+          description: `Failed to process message: ${(error as Error).message || "Unknown error"}`,
         });
+        setCurrentMessage("");
       }
     };
 
