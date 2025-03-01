@@ -7,8 +7,9 @@ declare global {
 }
 
 const FALLBACK_VOICE_IDS = [
-  "prWuvshrvr3mOPVsV6bJ", // dron guin
-  "z8nv38zRVDhoymPBPACM"  // random voice
+//"prWuvshrvr3mOPVsV6bJ", // dron guin
+  //"z8nv38zRVDhoymPBPACM" , // random voice 
+  "9BWtsMINqrJLrRacOk9x" // random voice
 ]
 const ELEVENLABS_API_KEY = process.env.NEXT_PUBLIC_ELEVENLABS_API_KEY;
 const ELEVENLABS_API_URL = "https://api.elevenlabs.io/v1";
