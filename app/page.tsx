@@ -182,7 +182,7 @@ export default function HomePage() {
                 <Button
                   className="bg-gradient-to-r from-gray-800 to-gray-900 text-white border border-gray-800 
                             hover:from-gray-700 hover:to-gray-800 shadow-xl hover:shadow-2xl hover:scale-105 
-                            transition-all duration-300 tracking-wide"
+                            transition-all duration-700 tracking-wide"
                   size="lg"
                 >
                   Get Personal Assistant
