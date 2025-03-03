@@ -2,6 +2,10 @@
 
 import { cn } from "@/lib/utils";
 
+const handleLogoClick = () => {
+  window.location.reload();
+};
+
 export function Logo({ className }) {
   return (
     <div className={cn("flex items-center gap-2", className)}>
@@ -11,7 +15,7 @@ export function Logo({ className }) {
           a
         </div>
       </div> */}
-      <span className="text-3xl font-extrabold tracking-tight">azmth</span>
+      <span className="text-3xl font-extrabold tracking-tight cursor-pointer" onClick={handleLogoClick}>azmth</span>
     </div>
   );
 }

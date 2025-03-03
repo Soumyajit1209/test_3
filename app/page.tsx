@@ -6,6 +6,9 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
+import { useAuth } from "@clerk/nextjs";
+import { SignInButton, SignUpButton } from "@clerk/nextjs";
+import { UserButton } from "@/components/user-button";
 
 const AnimatedBackground = dynamic(
   () => import("../components/animated-background"),
@@ -16,6 +19,7 @@ const AnimatedBackground = dynamic(
 
 export default function HomePage() {
   const [mounted, setMounted] = useState(false);
+  const { isSignedIn, isLoaded } = useAuth();
 
   useEffect(() => {
     setMounted(true);
@@ -77,12 +81,68 @@ export default function HomePage() {
     },
   };
 
+  const buttonAnimation = {
+    hidden: { opacity: 0, y: 10 },
+    visible: (i: number) => ({
+      opacity: 1,
+      y: 0,
+      transition: {
+        delay: i * 0.1 + 0.5,
+        type: "spring",
+        stiffness: 100,
+        damping: 8,
+      },
+    }),
+  };
+
   if (!mounted) return null;
 
   return (
     <div className="relative min-h-screen bg-[#030303] overflow-hidden">
       <div className="absolute inset-0 bg-gradient-radial from-transparent via-black/30 to-black/70 pointer-events-none z-10" />
       <AnimatedBackground />
+      
+      {/* Auth header section */}
+      <div className="absolute top-6 right-6 z-30">
+        {isLoaded && isSignedIn ? (
+          <UserButton />
+        ) : (
+          <div className="flex space-x-3">
+            <motion.div 
+              custom={0}
+              variants={buttonAnimation}
+              initial="hidden"
+              animate="visible"
+            >
+              <SignInButton mode="modal">
+                <Button 
+                  variant="outline" 
+                  className="border-gray-700 text-gray-200 hover:bg-gray-800 hover:text-white transition-all duration-300"
+                  size="sm"
+                >
+                  Sign In
+                </Button>
+              </SignInButton>
+            </motion.div>
+            <motion.div 
+              custom={1}
+              variants={buttonAnimation}
+              initial="hidden"
+              animate="visible"
+            >
+              <SignUpButton mode="modal">
+                <Button 
+                  className="bg-gradient-to-r from-gray-700 to-gray-900 text-white border border-gray-800 
+                  hover:from-gray-600 hover:to-gray-800 transition-all duration-300"
+                  size="sm"
+                >
+                  Sign Up
+                </Button>
+              </SignUpButton>
+            </motion.div>
+          </div>
+        )}
+      </div>
 
       <div className="container relative z-20 mx-auto px-20 py-20">
         <div className="grid lg:grid-cols-2 gap-12 items-center min-h-[80vh]">
@@ -118,15 +178,15 @@ export default function HomePage() {
             </div>
 
             <motion.div variants={textAnimation}>
-                <Link href="/personal-assistant">
-              <Button
-                className="bg-gradient-to-r from-gray-800 to-gray-900 text-white border border-gray-800 
-                          hover:from-gray-700 hover:to-gray-800 shadow-xl hover:shadow-2xl hover:scale-105 
-                          transition-all duration-300 tracking-wide"
-                size="lg"
-              >
-                Get Personal Assistant
-              </Button>
+              <Link href="/personal-assistant">
+                <Button
+                  className="bg-gradient-to-r from-gray-800 to-gray-900 text-white border border-gray-800 
+                            hover:from-gray-700 hover:to-gray-800 shadow-xl hover:shadow-2xl hover:scale-105 
+                            transition-all duration-300 tracking-wide"
+                  size="lg"
+                >
+                  Get Personal Assistant
+                </Button>
               </Link>
             </motion.div>
           </motion.div>
@@ -173,7 +233,7 @@ export default function HomePage() {
                                 animate-pulse group-hover:from-gray-500/30 group-hover:to-gray-300/30 
                                 transition-all duration-300"
                   />
-                  <Link href="/chat" className="block">
+                  <Link href="/azmth-chat" className="block">
                     <Input
                       className="bg-gray-900/50 border-gray-800 text-gray-200 relative cursor-pointer 
                                 hover:bg-gray-800/50 transition-colors text-sm tracking-wide

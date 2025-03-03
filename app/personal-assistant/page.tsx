@@ -14,6 +14,7 @@ import {
   Play,
   Pause,
 } from "lucide-react";
+import { UserButton, useUser } from "@clerk/nextjs";
 import {
   cloneVoice,
   synthesizeVoice,
@@ -22,6 +23,7 @@ import {
 import { getChatResponse } from "@/lib/chat";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import FileUploadComponent from "@/components/FileUploadComponent";
 //import ParticleBackground from "./background-animation";
 
 interface CloneResponse {
@@ -55,6 +57,7 @@ const WaveAnimation = ({ isRecording }: { isRecording: boolean }) => {
 };
 
 export default function App() {
+  const { user } = useUser();
   const [isRecording, setIsRecording] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
@@ -74,10 +77,6 @@ export default function App() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const analyserRef = useRef<AnalyserNode | null>(null);
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const animationFrameRef = useRef<number | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const cardVariants = {
@@ -107,6 +106,13 @@ export default function App() {
       return;
     }
     setIsNameSubmitted(true);
+  };
+
+  const handleUploadSuccess = () => {
+    toast({
+      title: "Data Processed",
+      description: "Your uploaded content is now available to the assistant",
+    });
   };
 
   const startRecording = () => {
@@ -171,7 +177,7 @@ export default function App() {
         audioRef.current = null;
       }
     };
-  }, [audioBlob]); // Reinitialize when audioBlob changes
+  }, [audioBlob]);
 
   const handlePlayPause = () => {
     if (!audioRef.current) return;
@@ -354,7 +360,11 @@ export default function App() {
     };
 
     return (
-      <div className="min-h-screen bg-gray-900/50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gray-900/50 flex items-center justify-center p-4 relative">
+        <div className="absolute top-4 right-4 z-50">
+          <UserButton />
+        </div>
+        
         <AnimatePresence mode="wait">
           {!isNameSubmitted ? (
             <motion.div
@@ -372,22 +382,34 @@ export default function App() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex gap-2">
-                    <input
-                      className="flex-1 px-4 py-3 bg-gray-700 text-white rounded-lg border border-gray-600 focus:ring-2 focus:ring-blue-500"
-                      placeholder="Enter your name"
-                      value={userName}
-                      onChange={(e) => setUserName(e.target.value)}
-                      onKeyPress={(e) => {
-                        if (e.key === "Enter") handleNameSubmit();
-                      }}
-                    />
-                    <button
-                      className="px-4 py-2 bg-white text-black rounded-lg hover:bg-gray-400 transition-colors"
-                      onClick={handleNameSubmit}
-                    >
-                      <Send className="h-6 w-6" />
-                    </button>
+                  <div className="space-y-4">
+                    <div className="flex gap-2">
+                      <input
+                        className="flex-1 px-4 py-3 bg-gray-700 text-white rounded-lg border border-gray-600 focus:ring-2 focus:ring-blue-500"
+                        placeholder="Enter your name"
+                        value={userName}
+                        onChange={(e) => setUserName(e.target.value)}
+                        onKeyPress={(e) => {
+                          if (e.key === "Enter") handleNameSubmit();
+                        }}
+                      />
+                      <button
+                        className="px-4 py-2 bg-white text-black rounded-lg hover:bg-gray-400 transition-colors"
+                        onClick={handleNameSubmit}
+                      >
+                        <Send className="h-6 w-6" />
+                      </button>
+                    </div>
+                    
+                    <div className="flex items-center gap-2">
+                      <div className="flex-grow">
+                        <FileUploadComponent 
+                          userId={user?.id || "anonymous"} 
+                          onUploadSuccess={handleUploadSuccess} 
+                        />
+                      </div>
+                      <p className="text-sm text-gray-400">Upload files or add URLs</p>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
