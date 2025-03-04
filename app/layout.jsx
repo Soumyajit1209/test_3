@@ -3,9 +3,9 @@ import { Urbanist } from 'next/font/google';
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/toaster";
 import { ClerkProvider } from "@clerk/nextjs"
+import { Analytics } from "@vercel/analytics/react"
 
-
-const urbanist = Urbanist({ 
+const urbanist = Urbanist({
   subsets: ['latin'],
   display: 'swap',
   preload: true,
@@ -23,20 +23,21 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <ClerkProvider>
-    <html lang="en" suppressHydrationWarning>
-      <head />
-      <body className={urbanist.className} suppressHydrationWarning>
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="dark"
-          enableSystem={false}
-          storageKey="chat-theme"
-        >
-          {children}
-          <Toaster />
-        </ThemeProvider>
-      </body>
-    </html>
+      <html lang="en" suppressHydrationWarning>
+        <Analytics />
+        <head />
+        <body className={urbanist.className} suppressHydrationWarning>
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="dark"
+            enableSystem={false}
+            storageKey="chat-theme"
+          >
+            {children}
+            <Toaster />
+          </ThemeProvider>
+        </body>
+      </html>
     </ClerkProvider>
   );
 }
