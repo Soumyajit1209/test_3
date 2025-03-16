@@ -1,5 +1,4 @@
-"use client";
-
+"use client"
 import React, { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -13,6 +12,7 @@ import {
   RotateCcw,
   Play,
   Pause,
+  FileText,
 } from "lucide-react";
 import { UserButton, useUser } from "@clerk/nextjs";
 import {
@@ -24,12 +24,7 @@ import { getChatResponse } from "@/lib/chat";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import FileUploadComponent from "@/components/FileUploadComponent";
-//import ParticleBackground from "./background-animation";
-
-interface CloneResponse {
-  voice_id: string;
-  success: boolean;
-}
+import { cn } from "@/lib/utils";
 
 const WaveAnimation = ({ isRecording }: { isRecording: boolean }) => {
   return (
@@ -58,6 +53,8 @@ const WaveAnimation = ({ isRecording }: { isRecording: boolean }) => {
 
 export default function App() {
   const { user } = useUser();
+  const [activeTab, setActiveTab] = useState("IN");
+  const [logMessage, setLogMessage] = useState("");
   const [isRecording, setIsRecording] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
@@ -72,8 +69,10 @@ export default function App() {
   const [showRecordingGuide, setShowRecordingGuide] = useState(false);
   const [currentMessage, setCurrentMessage] = useState("");
   const [isConverting, setIsConverting] = useState(false);
+  const [pdfContent, setPdfContent] = useState<string>("");
+  const [selectedVoice, setSelectedVoice] = useState("option1");
+  
   const { toast } = useToast();
-
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
@@ -85,16 +84,28 @@ export default function App() {
     exit: { opacity: 0, y: -20 },
   };
 
-  useEffect(() => {
-    if (isNameSubmitted) {
-      setWelcomeMessage(`Welcome to azmth, ${userName}!`);
-      setShowRecordingGuide(true);
+  const fetchPdfContent = async () => {
+    try {
+      const response = await fetch('/api/pdf-content');
+      const data = await response.json();
+      setPdfContent(data.content);
+    } catch (error) {
+      console.error('Error fetching PDF content:', error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to load PDF content",
+      });
     }
-  }, [isNameSubmitted, userName]);
+  };
 
-  useEffect(() => {
-    registerUnloadHandler();
-  }, []);
+  const handleUploadSuccess = async () => {
+    toast({
+      title: "Data Processed",
+      description: "Your uploaded content is now available to the assistant",
+    });
+    await fetchPdfContent();
+  };
 
   const handleNameSubmit = () => {
     if (userName.trim() === "") {
@@ -106,13 +117,6 @@ export default function App() {
       return;
     }
     setIsNameSubmitted(true);
-  };
-
-  const handleUploadSuccess = () => {
-    toast({
-      title: "Data Processed",
-      description: "Your uploaded content is now available to the assistant",
-    });
   };
 
   const startRecording = () => {
@@ -140,7 +144,6 @@ export default function App() {
         timerRef.current = setInterval(() => {
           setRecordingTime((prev) => prev + 1);
         }, 1000);
-        //setupAudioVisualization(stream);
       })
       .catch((error) => {
         console.error("Error accessing microphone:", error);
@@ -160,24 +163,6 @@ export default function App() {
       mediaRecorderRef.current.stop();
     }
   };
-  useEffect(() => {
-    if (audioBlob) {
-      const audioUrl = URL.createObjectURL(audioBlob);
-      audioRef.current = new Audio(audioUrl);
-
-      audioRef.current.onended = () => {
-        setIsPlaying(false);
-      };
-    }
-
-    return () => {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current.src = "";
-        audioRef.current = null;
-      }
-    };
-  }, [audioBlob]);
 
   const handlePlayPause = () => {
     if (!audioRef.current) return;
@@ -216,155 +201,200 @@ export default function App() {
     setIsCloning(true);
     setCloningProgress(0);
 
-      // Show progress while waiting
-  const progressInterval = setInterval(() => {
-    setCloningProgress((prev) => {
-      if (prev >= 90) return prev;
-      return prev + 5;
-    });
-  }, 500);
+    const progressInterval = setInterval(() => {
+      setCloningProgress((prev) => {
+        if (prev >= 90) return prev;
+        return prev + 5;
+      });
+    }, 500);
 
-  try {
-    // Use a timeout to prevent hanging
-    const response = await Promise.race([
-      cloneVoice(audioBlob, userName),
-      new Promise<never>((_, reject) => 
-        setTimeout(() => reject(new Error("Voice cloning timed out after 30 seconds")), 30000)
-      )
-    ]);
+    try {
+      const response = await Promise.race([
+        cloneVoice(audioBlob, userName),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("Voice cloning timed out after 30 seconds")), 30000)
+        ),
+      ]);
 
-    clearInterval(progressInterval);
-    setCloningProgress(100);
+      clearInterval(progressInterval);
+      setCloningProgress(100);
 
-    if (response.voice_id) {
-      setVoice_id(response.voice_id);
-      setIsCallActive(true);
+      if (response.voice_id) {
+        setVoice_id(response.voice_id);
+        setIsCallActive(true);
 
-      if (response.isUsingFallback) {
-        toast({
-          title: "Notice",
-          description: "Voice cloning was not successful. Using a pre-made voice instead.",
-          variant: "default",
-        });
+        if (response.isUsingFallback) {
+          toast({
+            title: "Notice",
+            description: "Voice cloning was not successful. Using a pre-made voice instead.",
+            variant: "default",
+          });
+        } else {
+          toast({
+            title: "Success",
+            description: "Voice cloned successfully! You can now start the conversation.",
+          });
+        }
       } else {
-        toast({
-          title: "Success",
-          description: "Voice cloned successfully! You can now start the conversation.",
-        });
+        throw new Error("Voice cloning failed - no voice ID returned");
       }
-    } else {
-      throw new Error("Voice cloning failed - no voice ID returned");
+    } catch (error) {
+      console.error("Cloning failed:", error);
+      clearInterval(progressInterval);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: `Voice cloning failed: ${(error as Error).message || "Unknown error"}`,
+      });
+    } finally {
+      setIsCloning(false);
     }
-  } catch (error) {
-    console.error("Cloning failed:", error);
-    clearInterval(progressInterval);
-    toast({
-      variant: "destructive",
-      title: "Error",
-      description: `Voice cloning failed: ${(error as Error).message || "Unknown error"}`,
-    });
-  } finally {
-    setIsCloning(false);
-  }
-};
+  };
 
-    const handleSpeechToText = () => {
-      if (!("webkitSpeechRecognition" in window)) {
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: "Speech recognition is not supported in your browser.",
-        });
-        return;
-      }
-      setIsConverting(true);
-      const recognition = new (window as any).webkitSpeechRecognition();
-      recognition.onresult = (event: any) => {
-        const transcript = event.results[0][0].transcript;
-        setCurrentMessage(transcript);
-        setIsConverting(false);
-      };
-      recognition.onerror = (event: any) => {
-        console.error("Speech recognition error", event.error);
-        setIsConverting(false);
-      };
-      recognition.start();
-    };
-
-    const stopSpeechToText = () => {
+  const handleSpeechToText = () => {
+    if (!("webkitSpeechRecognition" in window)) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Speech recognition is not supported in your browser.",
+      });
+      return;
+    }
+    setIsConverting(true);
+    const recognition = new (window as any).webkitSpeechRecognition();
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      setCurrentMessage(transcript);
       setIsConverting(false);
+    };
+    recognition.onerror = (event: any) => {
+      console.error("Speech recognition error", event.error);
+      setIsConverting(false);
+    };
+    recognition.start();
+  };
+
+  const stopSpeechToText = () => {
+    setIsConverting(false);
+    setCurrentMessage("");
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.src = "";
+    }
+  };
+
+  const sendMessage = async (text: string, voice_id: string) => {
+    try {
+      setCurrentMessage("Processing your message...");
+      
+      const chatResponse = await Promise.race([
+        getChatResponse(text),
+        new Promise<never>((_, reject) => 
+          setTimeout(() => reject(new Error("Chat response timed out")), 15000)
+        )
+      ]);
+  
+      if (chatResponse.success && chatResponse.text) {
+        const audioUrl = await Promise.race([
+          synthesizeVoice(chatResponse.text, voice_id),
+          new Promise<never>((_, reject) => 
+            setTimeout(() => reject(new Error("Voice synthesis timed out")), 15000)
+          )
+        ]);
+  
+        if (audioUrl) {
+          setCurrentMessage(chatResponse.text);
+          playResponseAudio(audioUrl);
+        } else {
+          throw new Error("Failed to synthesize voice - null response");
+        }
+      } else {
+        throw new Error(chatResponse.text || "Failed to get chat response");
+      }
+    } catch (error) {
+      console.error("Message processing failed:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: `Failed to process message: ${(error as Error).message || "Unknown error"}`,
+      });
       setCurrentMessage("");
+    }
+  };
+
+  const playResponseAudio = (audioUrl: string) => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+    }
+    audioRef.current = new Audio(audioUrl);
+    audioRef.current.play().catch((error) => {
+      console.error("Error playing audio:", error);
+    });
+  };
+
+  useEffect(() => {
+    if (isNameSubmitted) {
+      setWelcomeMessage(`Welcome to azmth, ${userName}!`);
+      setShowRecordingGuide(true);
+    }
+  }, [isNameSubmitted, userName]);
+
+  useEffect(() => {
+    registerUnloadHandler();
+  }, []);
+
+  useEffect(() => {
+    if (audioBlob) {
+      const audioUrl = URL.createObjectURL(audioBlob);
+      audioRef.current = new Audio(audioUrl);
+
+      audioRef.current.onended = () => {
+        setIsPlaying(false);
+      };
+    }
+
+    return () => {
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current.src = "";
+        audioRef.current = null;
       }
     };
+  }, [audioBlob]);
 
-    const sendMessage = async (text: string, voice_id: string) => {
-      try {
-        // Indicate processing state to user
-        setCurrentMessage("Processing your message...");
-        
-        // Use a timeout to prevent hanging
-        const chatResponse = await Promise.race([
-          getChatResponse(text),
-          new Promise<never>((_, reject) => 
-            setTimeout(() => reject(new Error("Chat response timed out")), 15000)
-          )
-        ]);
-    
-        if (chatResponse.success && chatResponse.text) {
-          const audioUrl = await Promise.race([
-            synthesizeVoice(chatResponse.text, voice_id),
-            new Promise<never>((_, reject) => 
-              setTimeout(() => reject(new Error("Voice synthesis timed out")), 15000)
-            )
-          ]);
-    
-          if (audioUrl) {
-            setCurrentMessage(chatResponse.text);
-            playResponseAudio(audioUrl);
-          } else {
-            throw new Error("Failed to synthesize voice - null response");
-          }
-        } else {
-          throw new Error(chatResponse.text || "Failed to get chat response");
-        }
-      } catch (error) {
-        console.error("Message processing failed:", error);
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: `Failed to process message: ${(error as Error).message || "Unknown error"}`,
-        });
-        setCurrentMessage("");
-      }
-    };
-
-    const playResponseAudio = (audioUrl: string) => {
-      if (audioRef.current) {
-        audioRef.current.pause();
-      }
-      audioRef.current = new Audio(audioUrl);
-      audioRef.current.play().catch((error) => {
-        console.error("Error playing audio:", error);
-      });
-    };
-
-    const formatTime = (seconds: number) => {
-      const minutes = Math.floor(seconds / 60);
-      const remainingSeconds = seconds % 60;
-      return `${minutes}:${
-        remainingSeconds < 10 ? "0" : ""
-      }${remainingSeconds}`;
-    };
-
-    return (
-      <div className="min-h-screen bg-gray-900/50 flex items-center justify-center p-4 relative">
-        <div className="absolute top-4 right-4 z-50">
-          <UserButton />
+  return (
+    <div className="min-h-screen bg-gray-900/50 flex relative">
+      <div className="w-64 bg-gray-800/90 backdrop-blur-sm border-r border-gray-700 flex flex-col">
+        <div className="p-6">
+          <h2 className="text-xl font-bold text-white mb-8">Personal Assistant</h2>
         </div>
         
+        <div className="flex flex-col px-4 gap-3 flex-grow">
+          <button 
+            className={`px-4 py-3 rounded-lg flex items-center gap-3 transition-colors ${
+              !isNameSubmitted || !voice_id ? 'bg-white text-black' : 'bg-gray-700 text-white hover:bg-gray-600'
+            }`}
+            onClick={() => setIsNameSubmitted(false)}
+          >
+            <span>Input</span>
+          </button>
+          
+          <button 
+            className="px-4 py-3 rounded-lg flex items-center gap-3 bg-gray-700 text-white hover:bg-gray-600 transition-colors"
+          >
+            <span>Log</span>
+          </button>
+        </div>
+        
+        <div className="p-6 border-t border-gray-700 mt-auto">
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-gray-400">v1.0.0</div>
+            <UserButton />
+          </div>
+        </div>
+      </div>
+      
+      <div className="flex-1 flex items-center justify-center p-4 relative">
         <AnimatePresence mode="wait">
           {!isNameSubmitted ? (
             <motion.div
@@ -378,7 +408,7 @@ export default function App() {
               <Card className="bg-gray-800/80 backdrop-blur-sm border-gray-700">
                 <CardHeader>
                   <CardTitle className="text-3xl font-bold text-white text-center">
-                    Personal Assistant
+                    Enter Your Name
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -405,6 +435,7 @@ export default function App() {
                       <div className="flex-grow">
                         <FileUploadComponent 
                           userId={user?.id || "anonymous"} 
+                          userName = {userName}
                           onUploadSuccess={handleUploadSuccess} 
                         />
                       </div>
@@ -421,109 +452,104 @@ export default function App() {
               initial="hidden"
               animate="visible"
               exit="exit"
-              className="w-full max-w-2xl"
+              className="w-full"
             >
-              <Card className="bg-gray-800/80 backdrop-blur-sm border-gray-700 relative overflow-hidden">
-                <CardHeader>
-                  <CardTitle className="text-2xl font-bold text-white">
-                    {welcomeMessage}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="relative z-10 space-y-6">
-                  <div className="bg-gray-700/50 p-6 rounded-xl">
-                    <p className="text-lg text-gray-200 leading-relaxed">
-                      Hello, my name is {userName}, and I am _______________
-                      (Age) years old. I practice _______________ (Religion) and
-                      am a (nationality) _______________ national. My highest
-                      qualification is _______________ (Highest Qualification).
-                      With _______________ (Experience) years of experience, I
-                      currently work as a _______________ (Current Job).
-                    </p>
-                    <div className="mt-4">
-                      <h3 className="font-bold text-xl text-white mb-2">
-                        Today&apos;s Schedule
-                      </h3>
-                      <ul className="space-y-2 text-gray-300">
-                        <li>10:00 AM - Meeting with John from Marketing</li>
-                        <li>1:00 PM - Meeting with Emily from Sales</li>
-                        <li>3:30 PM - Meeting with David from IT</li>
-                      </ul>
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    <WaveAnimation isRecording={isRecording} />
-
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div
-                          className={`w-2 h-2 rounded-full ${
-                            isRecording
-                              ? "bg-red-500 animate-pulse"
-                              : "bg-gray-400"
-                          }`}
-                        />
-                        {/* <span className="text-sm font-mono text-white">
-                          {formatTime(recordingTime)}
-                        </span> */}
-                      </div>
-
-                      <div className="flex gap-3">
-                        <button
-                          className={`p-3 rounded-full transition-colors ${
-                            isRecording
-                              ? "bg-red-500 text-white"
-                              : "bg-white text-black hover:bg-gray-400"
-                          }`}
-                          onClick={isRecording ? stopRecording : startRecording}
-                        >
-                          {isRecording ? (
-                            <Square className="h-5 w-5" />
-                          ) : (
-                            <Mic className="h-5 w-5" />
-                          )}
-                        </button>
-
-                        <button
-                          className="p-3 bg-white text-black rounded-full hover:bg-gray-400 transition-colors"
-                          disabled={!audioBlob}
-                          onClick={handlePlayPause}
-                        >
-                          {isPlaying ? (
-                            <Pause className="h-5 w-5" />
-                          ) : (
-                            <Play className="h-5 w-5" />
-                          )}
-                        </button>
-
-                        <button
-                          className="p-3 bg-white text-black rounded-full hover:bg-gray-400 transition-colors"
-                          onClick={() => {
-                            setAudioBlob(null);
-                            setRecordingTime(0);
-                          }}
-                        >
-                          <RotateCcw className="h-5 w-5" />
-                        </button>
-                      </div>
+              <div className="flex gap-6">
+                <Card className="flex-1 bg-gray-800/80 backdrop-blur-sm border-gray-700">
+                  <CardHeader>
+                    <CardTitle className="text-2xl font-bold text-white">
+                      {welcomeMessage}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="mb-6">
+                      <label className="block text-white mb-2">Select Voice</label>
+                      <select
+                        value={selectedVoice}
+                        onChange={(e) => setSelectedVoice(e.target.value)}
+                        className="w-full p-2 rounded-lg bg-gray-700 text-white border border-gray-600"
+                      >
+                        <option value="option1">Option 1</option>
+                        <option value="option2">Option 2</option>
+                      </select>
                     </div>
 
-                    <button
-                      className={`w-full py-3 rounded-lg transition-colors ${
-                        !audioBlob || isCloning
-                          ? "bg-gray-600 text-gray-400 cursor-not-allowed"
-                          : "bg-white text-black hover:bg-white"
-                      }`}
-                      disabled={!audioBlob || isCloning}
-                      onClick={handleCloning}
-                    >
-                      {isCloning
-                        ? "Cloning in progress..."
-                        : "Proceed with Cloning"}
-                    </button>
-                  </div>
-                </CardContent>
-              </Card>
+                    <div className="space-y-4">
+                      <WaveAnimation isRecording={isRecording} />
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className={`w-2 h-2 rounded-full ${isRecording ? "bg-red-500 animate-pulse" : "bg-gray-400"}`} />
+                        </div>
+                        <div className="flex gap-3">
+                          <button
+                            className={`p-3 rounded-full transition-colors ${
+                              isRecording
+                                ? "bg-red-500 text-white"
+                                : "bg-white text-black hover:bg-gray-400"
+                            }`}
+                            onClick={isRecording ? stopRecording : startRecording}
+                          >
+                            {isRecording ? (
+                              <Square className="h-5 w-5" />
+                            ) : (
+                              <Mic className="h-5 w-5" />
+                            )}
+                          </button>
+
+                          <button
+                            className="p-3 bg-white text-black rounded-full hover:bg-gray-400 transition-colors"
+                            disabled={!audioBlob}
+                            onClick={handlePlayPause}
+                          >
+                            {isPlaying ? (
+                              <Pause className="h-5 w-5" />
+                            ) : (
+                              <Play className="h-5 w-5" />
+                            )}
+                          </button>
+
+                          <button
+                            className="p-3 bg-white text-black rounded-full hover:bg-gray-400 transition-colors"
+                            onClick={() => {
+                              setAudioBlob(null);
+                              setRecordingTime(0);
+                            }}
+                          >
+                            <RotateCcw className="h-5 w-5" />
+                          </button>
+                        </div>
+                      </div>
+                      <button
+                        className={`w-full py-3 rounded-lg transition-colors ${
+                          !audioBlob || isCloning
+                            ? "bg-gray-600 text-gray-400 cursor-not-allowed"
+                            : "bg-white text-black hover:bg-white"
+                        }`}
+                        disabled={!audioBlob || isCloning}
+                        onClick={handleCloning}
+                      >
+                        {isCloning ? "Cloning in progress..." : "Proceed with Cloning"}
+                      </button>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="flex-1 bg-gray-800/80 backdrop-blur-sm border-gray-700">
+                  <CardHeader>
+                    <CardTitle className="text-2xl font-bold text-white flex items-center gap-2">
+                      <FileText className="h-6 w-6" />
+                      Document Content
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="bg-gray-700/50 p-6 rounded-xl max-h-[600px] overflow-y-auto">
+                      <p className="text-white whitespace-pre-wrap">
+                        {pdfContent || "No content available. Please upload a document."}
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
             </motion.div>
           ) : (
             <motion.div
@@ -542,14 +568,9 @@ export default function App() {
                       animate={{ scale: isCallActive ? [1, 1.05, 1] : 1 }}
                       transition={{ duration: 2, repeat: Infinity }}
                     >
-                      <div
-                        className={`w-24 h-24 rounded-full bg-gray-700 flex items-center justify-center
-                      ${
-                        isCallActive
-                          ? "ring-4 ring-blue-500 ring-opacity-50"
-                          : ""
-                      }`}
-                      >
+                      <div className={`w-24 h-24 rounded-full bg-gray-700 flex items-center justify-center ${
+                        isCallActive ? "ring-4 ring-blue-500 ring-opacity-50" : ""
+                      }`}>
                         <User className="w-12 h-12 text-gray-400" />
                       </div>
                     </motion.div>
@@ -559,14 +580,9 @@ export default function App() {
                       animate={{ scale: isCallActive ? [1, 1.05, 1] : 1 }}
                       transition={{ duration: 2, repeat: Infinity }}
                     >
-                      <div
-                        className={`w-24 h-24 rounded-full bg-gray-700 flex items-center justify-center
-                      ${
-                        isCallActive
-                          ? "ring-4 ring-blue-500 ring-opacity-50"
-                          : ""
-                      }`}
-                      >
+                      <div className={`w-24 h-24 rounded-full bg-gray-700 flex items-center justify-center ${
+                        isCallActive ? "ring-4 ring-blue-500 ring-opacity-50" : ""
+                      }`}>
                         <Bot className="w-12 h-12 text-gray-400" />
                       </div>
                     </motion.div>
@@ -575,9 +591,7 @@ export default function App() {
                   <div className="bg-gray-700/50 p-6 rounded-xl mb-6 min-h-[100px]">
                     <p className="text-white">{currentMessage}</p>
                     {isConverting && (
-                      <p className="text-sm text-gray-400 mt-2">
-                        Recording your message...
-                      </p>
+                      <p className="text-sm text-gray-400 mt-2">Recording your message...</p>
                     )}
                   </div>
 
@@ -597,9 +611,7 @@ export default function App() {
                       className={`w-12 h-12 rounded-full flex items-center justify-center ${
                         isConverting ? "bg-red-500" : "bg-blue-500"
                       } text-white`}
-                      onClick={() =>
-                        isConverting ? stopSpeechToText() : handleSpeechToText()
-                      }
+                      onClick={() => isConverting ? stopSpeechToText() : handleSpeechToText()}
                     >
                       {isConverting ? (
                         <Square className="w-6 h-6" />
@@ -632,7 +644,7 @@ export default function App() {
                         }
                       }}
                     >
-                      <Send className="w-6 h-6" />
+                      <Send className="w-6" />
                     </motion.button>
                   </div>
                 </CardContent>
@@ -672,5 +684,6 @@ export default function App() {
 
         <audio ref={audioRef} style={{ display: "none" }} />
       </div>
-    );
-  };
+    </div>
+  );
+}

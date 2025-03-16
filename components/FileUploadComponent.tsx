@@ -6,10 +6,15 @@ import { useToast } from "@/hooks/use-toast";
 
 interface FileUploadComponentProps {
   userId: string;
+  userName?: string;
   onUploadSuccess?: () => void;
 }
 
-export default function FileUploadComponent({ userId, onUploadSuccess }: FileUploadComponentProps) {
+export default function FileUploadComponent({ 
+  userId, 
+  userName, 
+  onUploadSuccess 
+}: FileUploadComponentProps) {
   const [isUploading, setIsUploading] = useState(false);
   const [url, setUrl] = useState("");
   const [showUrlInput, setShowUrlInput] = useState(false);
@@ -39,6 +44,9 @@ export default function FileUploadComponent({ userId, onUploadSuccess }: FileUpl
       const formData = new FormData();
       formData.append("file", file);
       formData.append("userId", userId);
+      if (userName) {
+        formData.append("userName", userName);
+      }
 
       const response = await fetch("/api/upload/pdf", {
         method: "POST",
@@ -95,6 +103,7 @@ export default function FileUploadComponent({ userId, onUploadSuccess }: FileUpl
         body: JSON.stringify({
           url: url.trim(),
           userId,
+          userName,
         }),
       });
 
