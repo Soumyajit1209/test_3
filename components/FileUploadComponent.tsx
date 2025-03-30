@@ -42,13 +42,13 @@ export default function FileUploadComponent({
     
     try {
       const formData = new FormData();
-      formData.append("file", file);
-      formData.append("userId", userId);
+      formData.append("pdf_file", file);
+      formData.append("company_name", userId);
       if (userName) {
         formData.append("userName", userName);
       }
 
-      const response = await fetch("/api/upload/pdf", {
+      const response = await fetch("https://devazmth.globaltfn.tech/upload_pdf", {
         method: "POST",
         body: formData,
       });
@@ -95,7 +95,7 @@ export default function FileUploadComponent({
     setIsUploading(true);
     
     try {
-      const response = await fetch("/api/upload/url", {
+      const response = await fetch("https://devazmth.globaltfn.tech/upload_pdf", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

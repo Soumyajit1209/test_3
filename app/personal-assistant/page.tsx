@@ -1,8 +1,7 @@
-"use client"
+"use client";
 import React, { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Phone,
   RefreshCw,
   Mic,
   Square,
@@ -13,18 +12,16 @@ import {
   Play,
   Pause,
   FileText,
+  ArrowLeft,
 } from "lucide-react";
 import { UserButton, useUser } from "@clerk/nextjs";
-import {
-  cloneVoice,
-  synthesizeVoice,
-  registerUnloadHandler,
-} from "@/lib/elevenlabs";
 import { getChatResponse } from "@/lib/chat";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import FileUploadComponent from "@/components/FileUploadComponent";
 import { cn } from "@/lib/utils";
+import Markdown from "react-markdown";
+import QueryHistoryHub from '@/components/QueryHistoryHub';
 
 const WaveAnimation = ({ isRecording }: { isRecording: boolean }) => {
   return (
@@ -53,16 +50,11 @@ const WaveAnimation = ({ isRecording }: { isRecording: boolean }) => {
 
 export default function App() {
   const { user } = useUser();
-  const [activeTab, setActiveTab] = useState("IN");
-  const [logMessage, setLogMessage] = useState("");
+  const [activeTab, setActiveTab] = useState("input");
   const [isRecording, setIsRecording] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
-  const [isCloning, setIsCloning] = useState(false);
-  const [cloningProgress, setCloningProgress] = useState(0);
-  const [isCallActive, setIsCallActive] = useState(false);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
-  const [voice_id, setVoice_id] = useState<string | null>(null);
   const [userName, setUserName] = useState("");
   const [isNameSubmitted, setIsNameSubmitted] = useState(false);
   const [welcomeMessage, setWelcomeMessage] = useState("");
@@ -71,7 +63,10 @@ export default function App() {
   const [isConverting, setIsConverting] = useState(false);
   const [pdfContent, setPdfContent] = useState<string>("");
   const [selectedVoice, setSelectedVoice] = useState("option1");
-  
+  const [response, setResponse] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [showReturnButton, setShowReturnButton] = useState(false);
+
   const { toast } = useToast();
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -84,13 +79,21 @@ export default function App() {
     exit: { opacity: 0, y: -20 },
   };
 
-  const fetchPdfContent = async () => {
+  const fetchPdfContent = async (company_id: string) => {
     try {
-      const response = await fetch('/api/pdf-content');
+      const response = await fetch(
+        `https://devazmth.globaltfn.tech/pdfs/${company_id}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
       const data = await response.json();
-      setPdfContent(data.content);
+      setPdfContent(data);
     } catch (error) {
-      console.error('Error fetching PDF content:', error);
+      console.error("Error fetching PDF content:", error);
       toast({
         variant: "destructive",
         title: "Error",
@@ -104,7 +107,7 @@ export default function App() {
       title: "Data Processed",
       description: "Your uploaded content is now available to the assistant",
     });
-    await fetchPdfContent();
+    await fetchPdfContent(user?.id || "anonymous");
   };
 
   const handleNameSubmit = () => {
@@ -178,79 +181,6 @@ export default function App() {
     setIsPlaying(!isPlaying);
   };
 
-  const handleEndCall = () => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.src = "";
-    }
-    setIsCallActive(false);
-    setVoice_id(null);
-    setCurrentMessage("");
-  };
-
-  const handleCloning = async () => {
-    if (!audioBlob || !userName) {
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Please record audio before proceeding",
-      });
-      return;
-    }
-
-    setIsCloning(true);
-    setCloningProgress(0);
-
-    const progressInterval = setInterval(() => {
-      setCloningProgress((prev) => {
-        if (prev >= 90) return prev;
-        return prev + 5;
-      });
-    }, 500);
-
-    try {
-      const response = await Promise.race([
-        cloneVoice(audioBlob, userName),
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error("Voice cloning timed out after 30 seconds")), 30000)
-        ),
-      ]);
-
-      clearInterval(progressInterval);
-      setCloningProgress(100);
-
-      if (response.voice_id) {
-        setVoice_id(response.voice_id);
-        setIsCallActive(true);
-
-        if (response.isUsingFallback) {
-          toast({
-            title: "Notice",
-            description: "Voice cloning was not successful. Using a pre-made voice instead.",
-            variant: "default",
-          });
-        } else {
-          toast({
-            title: "Success",
-            description: "Voice cloned successfully! You can now start the conversation.",
-          });
-        }
-      } else {
-        throw new Error("Voice cloning failed - no voice ID returned");
-      }
-    } catch (error) {
-      console.error("Cloning failed:", error);
-      clearInterval(progressInterval);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: `Voice cloning failed: ${(error as Error).message || "Unknown error"}`,
-      });
-    } finally {
-      setIsCloning(false);
-    }
-  };
-
   const handleSpeechToText = () => {
     if (!("webkitSpeechRecognition" in window)) {
       toast({
@@ -277,37 +207,22 @@ export default function App() {
   const stopSpeechToText = () => {
     setIsConverting(false);
     setCurrentMessage("");
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.src = "";
-    }
   };
 
-  const sendMessage = async (text: string, voice_id: string) => {
+  const sendMessage = async (text: string) => {
     try {
-      setCurrentMessage("Processing your message...");
-      
+      setIsLoading(true);
+      setResponse("Processing your message...");
+
       const chatResponse = await Promise.race([
         getChatResponse(text),
-        new Promise<never>((_, reject) => 
+        new Promise<never>((_, reject) =>
           setTimeout(() => reject(new Error("Chat response timed out")), 15000)
-        )
+        ),
       ]);
-  
+
       if (chatResponse.success && chatResponse.text) {
-        const audioUrl = await Promise.race([
-          synthesizeVoice(chatResponse.text, voice_id),
-          new Promise<never>((_, reject) => 
-            setTimeout(() => reject(new Error("Voice synthesis timed out")), 15000)
-          )
-        ]);
-  
-        if (audioUrl) {
-          setCurrentMessage(chatResponse.text);
-          playResponseAudio(audioUrl);
-        } else {
-          throw new Error("Failed to synthesize voice - null response");
-        }
+        setResponse(chatResponse.text);
       } else {
         throw new Error(chatResponse.text || "Failed to get chat response");
       }
@@ -316,21 +231,33 @@ export default function App() {
       toast({
         variant: "destructive",
         title: "Error",
-        description: `Failed to process message: ${(error as Error).message || "Unknown error"}`,
+        description: `Failed to process message: ${
+          (error as Error).message || "Unknown error"
+        }`,
       });
-      setCurrentMessage("");
+      setResponse("");
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const playResponseAudio = (audioUrl: string) => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-    }
-    audioRef.current = new Audio(audioUrl);
-    audioRef.current.play().catch((error) => {
-      console.error("Error playing audio:", error);
-    });
-  };
+  
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      // Show button when mouse is near the right edge of the screen
+      const windowWidth = window.innerWidth;
+      if (e.clientX > windowWidth - 100) {
+        setShowReturnButton(true);
+      } else {
+        setShowReturnButton(false);
+      }
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+    };
+  }, []);
 
   useEffect(() => {
     if (isNameSubmitted) {
@@ -338,10 +265,6 @@ export default function App() {
       setShowRecordingGuide(true);
     }
   }, [isNameSubmitted, userName]);
-
-  useEffect(() => {
-    registerUnloadHandler();
-  }, []);
 
   useEffect(() => {
     if (audioBlob) {
@@ -362,30 +285,65 @@ export default function App() {
     };
   }, [audioBlob]);
 
+  
+  useEffect(() => {
+    if (activeTab === "log") {
+      setIsNameSubmitted(false);
+    }
+  }, [activeTab]);
+
+  if (activeTab === "log") {
+    return (
+      <>
+        <QueryHistoryHub />
+      
+        {showReturnButton && (
+          <motion.button
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+            className="fixed top-1/2 right-4 transform -translate-y-1/2 bg-white text-black p-4 rounded-full shadow-lg hover:bg-gray-200 transition-all z-50 flex items-center gap-2"
+            onClick={() => setActiveTab("input")}
+          >
+            <ArrowLeft className="h-5 w-5" />
+            <span>Return to Input</span>
+          </motion.button>
+        )}
+      </>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-900/50 flex relative">
       <div className="w-64 bg-gray-800/90 backdrop-blur-sm border-r border-gray-700 flex flex-col">
         <div className="p-6">
-          <h2 className="text-xl font-bold text-white mb-8">Personal Assistant</h2>
+          <h2 className="text-xl font-bold text-white mb-8">
+            Personal Assistant
+          </h2>
         </div>
-        
+
         <div className="flex flex-col px-4 gap-3 flex-grow">
-          <button 
+          <button
             className={`px-4 py-3 rounded-lg flex items-center gap-3 transition-colors ${
-              !isNameSubmitted || !voice_id ? 'bg-white text-black' : 'bg-gray-700 text-white hover:bg-gray-600'
+              activeTab === 'input' ? "bg-white text-black" : "bg-gray-700 text-white hover:bg-gray-600"
             }`}
-            onClick={() => setIsNameSubmitted(false)}
+            onClick={() => {
+              setActiveTab('input');
+            }}
           >
             <span>Input</span>
           </button>
-          
+
           <button 
-            className="px-4 py-3 rounded-lg flex items-center gap-3 bg-gray-700 text-white hover:bg-gray-600 transition-colors"
+            className={`px-4 py-3 rounded-lg flex items-center gap-3 transition-colors ${
+              activeTab === 'log' ? "bg-white text-black" : "bg-gray-700 text-white hover:bg-gray-600"
+            }`}
+            onClick={() => setActiveTab('log')}
           >
             <span>Log</span>
           </button>
         </div>
-        
+
         <div className="p-6 border-t border-gray-700 mt-auto">
           <div className="flex items-center justify-between">
             <div className="text-sm text-gray-400">v1.0.0</div>
@@ -393,7 +351,7 @@ export default function App() {
           </div>
         </div>
       </div>
-      
+
       <div className="flex-1 flex items-center justify-center p-4 relative">
         <AnimatePresence mode="wait">
           {!isNameSubmitted ? (
@@ -408,7 +366,16 @@ export default function App() {
               <Card className="bg-gray-800/80 backdrop-blur-sm border-gray-700">
                 <CardHeader>
                   <CardTitle className="text-3xl font-bold text-white text-center">
-                    Enter Your Name
+                    {user?.firstName ? (
+                      <>
+                        Hi,{" "}
+                        <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-pink-500 to-red-500">
+                          {user.firstName}
+                        </span>
+                      </>
+                    ) : (
+                      "Enter Your Name"
+                    )}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -416,7 +383,7 @@ export default function App() {
                     <div className="flex gap-2">
                       <input
                         className="flex-1 px-4 py-3 bg-gray-700 text-white rounded-lg border border-gray-600 focus:ring-2 focus:ring-blue-500"
-                        placeholder="Enter your name"
+                        placeholder="Enter your Company Name"
                         value={userName}
                         onChange={(e) => setUserName(e.target.value)}
                         onKeyPress={(e) => {
@@ -430,24 +397,26 @@ export default function App() {
                         <Send className="h-6 w-6" />
                       </button>
                     </div>
-                    
+
                     <div className="flex items-center gap-2">
                       <div className="flex-grow">
-                        <FileUploadComponent 
-                          userId={user?.id || "anonymous"} 
-                          userName = {userName}
-                          onUploadSuccess={handleUploadSuccess} 
+                        <FileUploadComponent
+                          userId={user?.id || "anonymous"}
+                          userName={userName}
+                          onUploadSuccess={handleUploadSuccess}
                         />
                       </div>
-                      <p className="text-sm text-gray-400">Upload files or add URLs</p>
+                      <p className="text-sm text-gray-400">
+                        Upload files or add URLs
+                      </p>
                     </div>
                   </div>
                 </CardContent>
               </Card>
             </motion.div>
-          ) : !voice_id ? (
+          ) : (
             <motion.div
-              key="recording-card"
+              key="app-interface"
               variants={cardVariants}
               initial="hidden"
               animate="visible"
@@ -463,7 +432,9 @@ export default function App() {
                   </CardHeader>
                   <CardContent>
                     <div className="mb-6">
-                      <label className="block text-white mb-2">Select Voice</label>
+                      <label className="block text-white mb-2">
+                        Select Voice
+                      </label>
                       <select
                         value={selectedVoice}
                         onChange={(e) => setSelectedVoice(e.target.value)}
@@ -474,11 +445,26 @@ export default function App() {
                       </select>
                     </div>
 
-                    <div className="space-y-4">
+                    <div className="space-y-4 mb-6">
                       <WaveAnimation isRecording={isRecording} />
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <div className={`w-2 h-2 rounded-full ${isRecording ? "bg-red-500 animate-pulse" : "bg-gray-400"}`} />
+                          <div
+                            className={`w-2 h-2 rounded-full ${
+                              isRecording
+                                ? "bg-red-500 animate-pulse"
+                                : "bg-gray-400"
+                            }`}
+                          />
+                          <div className="text-sm text-gray-400">
+                            {recordingTime > 0
+                              ? `${Math.floor(recordingTime / 60)
+                                  .toString()
+                                  .padStart(2, "0")}:${(recordingTime % 60)
+                                  .toString()
+                                  .padStart(2, "0")}`
+                              : "00:00"}
+                          </div>
                         </div>
                         <div className="flex gap-3">
                           <button
@@ -487,7 +473,9 @@ export default function App() {
                                 ? "bg-red-500 text-white"
                                 : "bg-white text-black hover:bg-gray-400"
                             }`}
-                            onClick={isRecording ? stopRecording : startRecording}
+                            onClick={
+                              isRecording ? stopRecording : startRecording
+                            }
                           >
                             {isRecording ? (
                               <Square className="h-5 w-5" />
@@ -497,7 +485,11 @@ export default function App() {
                           </button>
 
                           <button
-                            className="p-3 bg-white text-black rounded-full hover:bg-gray-400 transition-colors"
+                            className={`p-3 rounded-full transition-colors ${
+                              !audioBlob
+                                ? "bg-gray-600 text-gray-400 cursor-not-allowed"
+                                : "bg-white text-black hover:bg-gray-400"
+                            }`}
                             disabled={!audioBlob}
                             onClick={handlePlayPause}
                           >
@@ -519,16 +511,84 @@ export default function App() {
                           </button>
                         </div>
                       </div>
+                    </div>
+
+                    <div className="bg-gray-700/50 p-6 rounded-xl mb-6 min-h-[200px] max-h-[300px] overflow-y-auto">
+                      <div className="mb-4">
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center">
+                            <User className="h-4 w-4 text-white" />
+                          </div>
+                          <p className="font-medium text-white">You</p>
+                        </div>
+                        <p className="text-white ml-10">{currentMessage}</p>
+                      </div>
+                      
+                      {response && (
+                        <div className="mb-4">
+                          <div className="flex items-center gap-2 mb-2">
+                            <div className="w-8 h-8 rounded-full bg-purple-500 flex items-center justify-center">
+                              <Bot className="h-4 w-4 text-white" />
+                            </div>
+                            <p className="font-medium text-white">Assistant</p>
+                          </div>
+                          <p className="text-white ml-10">{response}</p>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex gap-2">
                       <button
-                        className={`w-full py-3 rounded-lg transition-colors ${
-                          !audioBlob || isCloning
-                            ? "bg-gray-600 text-gray-400 cursor-not-allowed"
-                            : "bg-white text-black hover:bg-white"
+                        className={`p-3 rounded-lg transition-colors ${
+                          isConverting ? "bg-red-500 text-white" : "bg-blue-500 text-white hover:bg-blue-600"
                         }`}
-                        disabled={!audioBlob || isCloning}
-                        onClick={handleCloning}
+                        onClick={() =>
+                          isConverting ? stopSpeechToText() : handleSpeechToText()
+                        }
                       >
-                        {isCloning ? "Cloning in progress..." : "Proceed with Cloning"}
+                        {isConverting ? (
+                          <Square className="h-5 w-5" />
+                        ) : (
+                          <Mic className="h-5 w-5" />
+                        )}
+                      </button>
+                      
+                      <input
+                        className="flex-1 px-4 py-3 bg-gray-700 text-white rounded-lg border border-gray-600 focus:ring-2 focus:ring-blue-500"
+                        placeholder="Type your message..."
+                        value={currentMessage}
+                        onChange={(e) => setCurrentMessage(e.target.value)}
+                        onKeyPress={(e) => {
+                          if (e.key === "Enter" && currentMessage.trim() !== "") {
+                            sendMessage(currentMessage);
+                          }
+                        }}
+                      />
+                      
+                      <button
+                        className={`px-4 py-2 rounded-lg transition-colors ${
+                          !currentMessage.trim() || isLoading
+                            ? "bg-gray-600 text-gray-400 cursor-not-allowed"
+                            : "bg-white text-black hover:bg-gray-200"
+                        }`}
+                        disabled={!currentMessage.trim() || isLoading}
+                        onClick={() => {
+                          if (currentMessage.trim() !== "") {
+                            sendMessage(currentMessage);
+                          }
+                        }}
+                      >
+                        <Send className="h-6 w-6" />
+                      </button>
+                      
+                      <button
+                        className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-500 transition-colors"
+                        onClick={() => {
+                          setCurrentMessage("");
+                          setResponse("");
+                        }}
+                      >
+                        <RefreshCw className="h-6 w-6" />
                       </button>
                     </div>
                   </CardContent>
@@ -543,141 +603,14 @@ export default function App() {
                   </CardHeader>
                   <CardContent>
                     <div className="bg-gray-700/50 p-6 rounded-xl max-h-[600px] overflow-y-auto">
-                      <p className="text-white whitespace-pre-wrap">
-                        {pdfContent || "No content available. Please upload a document."}
-                      </p>
+                      <Markdown>
+                        {pdfContent ||
+                          "No content available. Please upload a document."}
+                      </Markdown>
                     </div>
                   </CardContent>
                 </Card>
               </div>
-            </motion.div>
-          ) : (
-            <motion.div
-              key="call-interface"
-              variants={cardVariants}
-              initial="hidden"
-              animate="visible"
-              exit="exit"
-              className="w-full max-w-2xl"
-            >
-              <Card className="bg-gray-800/80 backdrop-blur-sm border-gray-700">
-                <CardContent className="p-8">
-                  <div className="flex justify-center gap-8 mb-8">
-                    <motion.div
-                      className="relative"
-                      animate={{ scale: isCallActive ? [1, 1.05, 1] : 1 }}
-                      transition={{ duration: 2, repeat: Infinity }}
-                    >
-                      <div className={`w-24 h-24 rounded-full bg-gray-700 flex items-center justify-center ${
-                        isCallActive ? "ring-4 ring-blue-500 ring-opacity-50" : ""
-                      }`}>
-                        <User className="w-12 h-12 text-gray-400" />
-                      </div>
-                    </motion.div>
-
-                    <motion.div
-                      className="relative"
-                      animate={{ scale: isCallActive ? [1, 1.05, 1] : 1 }}
-                      transition={{ duration: 2, repeat: Infinity }}
-                    >
-                      <div className={`w-24 h-24 rounded-full bg-gray-700 flex items-center justify-center ${
-                        isCallActive ? "ring-4 ring-blue-500 ring-opacity-50" : ""
-                      }`}>
-                        <Bot className="w-12 h-12 text-gray-400" />
-                      </div>
-                    </motion.div>
-                  </div>
-
-                  <div className="bg-gray-700/50 p-6 rounded-xl mb-6 min-h-[100px]">
-                    <p className="text-white">{currentMessage}</p>
-                    {isConverting && (
-                      <p className="text-sm text-gray-400 mt-2">Recording your message...</p>
-                    )}
-                  </div>
-
-                  <div className="flex justify-center gap-4">
-                    <motion.button
-                      whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: 0.9 }}
-                      className="w-12 h-12 bg-red-500 text-white rounded-full flex items-center justify-center"
-                      onClick={handleEndCall}
-                    >
-                      <Phone className="w-6 h-6" />
-                    </motion.button>
-
-                    <motion.button
-                      whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: 0.9 }}
-                      className={`w-12 h-12 rounded-full flex items-center justify-center ${
-                        isConverting ? "bg-red-500" : "bg-blue-500"
-                      } text-white`}
-                      onClick={() => isConverting ? stopSpeechToText() : handleSpeechToText()}
-                    >
-                      {isConverting ? (
-                        <Square className="w-6 h-6" />
-                      ) : (
-                        <Mic className="w-6 h-6" />
-                      )}
-                    </motion.button>
-
-                    <motion.button
-                      whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: 0.9 }}
-                      className="w-12 h-12 bg-gray-600 text-white rounded-full flex items-center justify-center"
-                      onClick={() => setCurrentMessage("")}
-                    >
-                      <RefreshCw className="w-6 h-6" />
-                    </motion.button>
-
-                    <motion.button
-                      whileHover={{ scale: 1.1 }}
-                      whileTap={{ scale: 0.9 }}
-                      className={`w-12 h-12 rounded-full flex items-center justify-center ${
-                        !currentMessage || !voice_id
-                          ? "bg-gray-600 cursor-not-allowed"
-                          : "bg-green-500"
-                      } text-white`}
-                      disabled={!currentMessage || !voice_id}
-                      onClick={() => {
-                        if (currentMessage && voice_id) {
-                          sendMessage(currentMessage, voice_id);
-                        }
-                      }}
-                    >
-                      <Send className="w-6" />
-                    </motion.button>
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        <AnimatePresence>
-          {isCloning && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center"
-            >
-              <Card className="w-full max-w-md bg-gray-800/80 backdrop-blur-sm border-gray-700">
-                <CardContent className="p-6">
-                  <div className="space-y-4">
-                    <div className="w-full bg-gray-700 rounded-full h-2 overflow-hidden">
-                      <motion.div
-                        className="h-full bg-blue-500"
-                        initial={{ width: "0%" }}
-                        animate={{ width: `${cloningProgress}%` }}
-                        transition={{ duration: 0.5 }}
-                      />
-                    </div>
-                    <p className="text-center text-white">
-                      Cloning voice... {cloningProgress}%
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
             </motion.div>
           )}
         </AnimatePresence>
